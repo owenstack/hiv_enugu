@@ -58,19 +58,27 @@ create_environment:
 #################################################################################
 
 
-## Make dataset
+## Make dataset (Data processing is also part of run-analysis)
 .PHONY: data
 data: requirements
 	$(PYTHON_INTERPRETER) hiv_enugu/data_processing.py
 
-## Run the application
-.PHONY: train
-data: requirements
-	$(PYTHON_INTERPRETER) hiv_enugu/modeling/train.py
+## Run the full analysis pipeline
+.PHONY: run-analysis
+run-analysis: requirements
+	$(PYTHON_INTERPRETER) run_analysis.py
 
-.PHONY: predict
-data: requirements
-	$(PYTHON_INTERPRETER) hiv_enugu/modeling/predict.py
+# The following targets point to older, potentially superseded scripts.
+# Kept for reference or if specific parts of the old pipeline are needed.
+## Run the original training script
+#.PHONY: train
+#train: requirements
+#	$(PYTHON_INTERPRETER) hiv_enugu/modeling/train.py
+
+## Run the original prediction script
+#.PHONY: predict
+#predict: requirements
+#	$(PYTHON_INTERPRETER) hiv_enugu/modeling/predict.py
 
 
 #################################################################################

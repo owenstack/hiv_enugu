@@ -1,8 +1,3 @@
-"""
-This script consolidates the functionality of run_analysis.py and train.py
-for HIV enrollment forecasting in Enugu.
-It provides a pipeline for training models, analyzing results, and generating predictions.
-"""
 import pandas as pd
 import numpy as np
 import warnings
@@ -10,6 +5,7 @@ import os
 import joblib
 from loguru import logger
 from typing import List, Dict, Tuple, Optional, Any, Callable
+from pathlib import Path
 
 # Custom module imports
 from hiv_enugu.data_processing import load_data
@@ -130,20 +126,21 @@ def _determine_best_model(
     logger.info(f"Best {model_type_name} Model (by '{used_key}'): {best_name} (Score: {best_score:.4f})")
     return best_name
 
-def _save_artifact(obj: Any, filename: str, directory: pd.io.common.PathIsh = MODELS_DIR) -> None:
+def _save_artifact(obj: Any, filename: str, directory: Path = MODELS_DIR) -> None:
     """Helper to save an artifact using joblib, creating directory if needed."""
     if obj is None:
         logger.warning(f"Attempted to save a None object for '{filename}'. Skipping.")
         return
+    
+    file_path = directory / filename
     try:
         os.makedirs(directory, exist_ok=True)
-        file_path = directory / filename
         joblib.dump(obj, file_path)
         logger.info(f"Saved artifact '{filename}' to {file_path}")
     except Exception as e:
         logger.error(f"Could not save artifact '{filename}' to {file_path}: {e}", exc_info=True)
 
-def _load_artifact(filename: str, directory: pd.io.common.PathIsh = MODELS_DIR) -> Optional[Any]:
+def _load_artifact(filename: str, directory: Path = MODELS_DIR) -> Optional[Any]:
     """Helper to load an artifact using joblib."""
     file_path = directory / filename
     if file_path.exists():
@@ -169,7 +166,7 @@ def run_training_and_analysis(file_path_str: str) -> None:
     logger.info("--- Starting HIV Modeling Training and Analysis Pipeline ---")
     global fitted_models_global, model_metrics_global, best_model_name_global, best_ensemble_model_name_global, X_global
 
-    file_path: pd.io.common.PathIsh = PROCESSED_DATA_DIR / file_path_str
+    file_path: Path = PROCESSED_DATA_DIR / file_path_str
 
     # 1. Load Data
     logger.info(f"Step 1: Loading data from {file_path}...")
@@ -266,17 +263,17 @@ def _perform_post_modeling_visualizations(
 
     # 10. Diagnostic Plots for Best Ensemble Model
     logger.info("\nStep 10: Generating diagnostic plots for best ensemble model...")
-    if best_ens_model_obj and hasattr(best_ens_model_obj, 'predict') and callable(getattr(best_ens_model_obj, 'predict')) and best_ensemble_name:
+    if best_ens_model_obj and best_ensemble_name:
         X_diag, y_diag = (X[final_test_idx], y[final_test_idx]) if final_test_idx.size > 0 and y[final_test_idx].size > 0 else (X, y)
         if X_diag.size > 0 and y_diag.size > 0:
-            y_pred_ensemble = getattr(best_ens_model_obj, 'predict')(X_diag)
+            y_pred_ensemble = best_ens_model_obj['predict'](X_diag)
             plot_residuals(y_diag, y_pred_ensemble, str(best_ensemble_name), filename="residuals_plot_ensemble.png")
             plot_residuals_histogram(y_diag, y_pred_ensemble, str(best_ensemble_name), filename="residuals_histogram_ensemble.png")
             logger.info("Diagnostic plots complete.")
         else:
             logger.warning("Skipping diagnostic plots: No diagnostic data (X_diag/y_diag empty).")
     else:
-        logger.warning("Skipping diagnostic plots: Best ensemble model/name not available or no 'predict' method.")
+        logger.info("Skipping diagnostic plots: Best ensemble model/name not available.")
 
     # 11. Forecast future trends
     logger.info("\nStep 11: Forecasting future trends...")
@@ -312,7 +309,7 @@ def generate_forecasts(
     if ml_model is None: logger.error("ML model not provided."); return None
     if scaler is None: logger.error("Scaler not provided."); return None
 
-    X_pred_time_idx: np.ndarray = df_predict["time_idx"].values.reshape(-1, 1)
+    X_pred_time_idx: np.ndarray = np.array(df_predict["time_idx"].values).reshape(-1, 1)
     logger.info("Generating ML features for forecasting...")
 
     context_for_growth_features = X_train_context if X_train_context is not None else X_pred_time_idx
@@ -320,17 +317,18 @@ def generate_forecasts(
         logger.warning("`X_train_context` is None, but growth models provided. Using prediction time indices for growth feature context.")
 
     try:
-        ml_features_df: pd.DataFrame = create_ml_features(
-            X_pred=X_pred_time_idx, growth_models_dict=fitted_growth_models, X_fit=context_for_growth_features
+        ml_features = create_ml_features(
+            X=X_pred_time_idx, fitted_models=fitted_growth_models, X_full=context_for_growth_features
         )
     except Exception as e: logger.error(f"Error during ML feature creation: {e}", exc_info=True); return None
 
-    if ml_features_df.empty: logger.error("Feature creation returned empty DataFrame."); return None
+    if isinstance(ml_features, pd.DataFrame) and ml_features.empty: 
+        logger.error("Feature creation returned empty DataFrame."); return None
 
     try:
-        ml_features_scaled: np.ndarray = scaler.transform(ml_features_df)
+        ml_features_scaled: np.ndarray = scaler.transform(ml_features)
     except Exception as e:
-        logger.error(f"Error scaling features: {e}. Columns: {ml_features_df.columns.tolist()}", exc_info=True); return None
+        logger.error(f"Error scaling features: {e}. Columns: {ml_features.columns.tolist() if isinstance(ml_features, pd.DataFrame) else 'N/A'}", exc_info=True); return None
 
     logger.info(f"Generating predictions with {type(ml_model).__name__}...")
     try:
@@ -407,8 +405,8 @@ def main_pipeline(mode: str = "train_and_analyze", data_file: str = "cleaned_enr
 
 if __name__ == "__main__":
     # Ensure necessary directories exist
-    for_dir in [PROCESSED_DATA_DIR, MODELS_DIR, FIGURES_DIR]:
-        for_dir.mkdir(parents=True, exist_ok=True)
+    for dir_path in [PROCESSED_DATA_DIR, MODELS_DIR, FIGURES_DIR]:
+        dir_path.mkdir(parents=True, exist_ok=True)
 
     # --- Run Training and Analysis ---
     logger.info("--- Main Execution: Starting Training and Analysis Phase ---")
@@ -416,27 +414,4 @@ if __name__ == "__main__":
     # If `load_data` only loads, the file must be present.
     main_pipeline(mode="train_and_analyze", data_file="cleaned_enrollments.csv")
     logger.info("--- Main Execution: Training and Analysis Phase Complete ---")
-
-    # --- Example: Standalone Prediction ---
-    dummy_predict_file_name = "dummy_future_time_data.csv"
-    dummy_predict_path = PROCESSED_DATA_DIR / dummy_predict_file_name
-
-    if not dummy_predict_path.exists():
-        logger.info(f"Creating dummy data file for prediction example: {dummy_predict_path}")
-        start_idx = 0
-        # Try to get context from X_global (if training ran in same session) or saved file
-        current_X_context = X_global if X_global is not None else _load_artifact("X_train_context_for_growth_models.pkl")
-        if current_X_context is not None and isinstance(current_X_context, np.ndarray) and current_X_context.size > 0:
-            start_idx = current_X_context[-1] + 1
-            logger.info(f"Determined start_idx {start_idx} for dummy data based on training context.")
-        else:
-            logger.warning("Could not determine training context end for dummy data. Starting time_idx from 0.")
-
-        future_time_indices = np.arange(start_idx, start_idx + 52) # 1 year of weekly data
-        dummy_df_predict = pd.DataFrame({'time_idx': future_time_indices})
-        dummy_df_predict.to_csv(dummy_predict_path, index=False)
-        logger.info(f"Dummy prediction data with 'time_idx' saved to {dummy_predict_path}")
-
-    logger.info(f"\n--- Main Execution: Starting Prediction Phase (using {dummy_predict_file_name}) ---")
-    main_pipeline(mode="predict", data_file=dummy_predict_file_name)
-    logger.info("--- Main Execution: Prediction Phase Complete ---")
+    main_pipeline(mode="predict")

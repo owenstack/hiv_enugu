@@ -1,0 +1,57 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "hiv_enugu"
+version = "0.0.1"
+description = "Invidual (exponential, logistic, richards and gompertz) and ensemble models to predict and forecast hiv cases based on data collected from various clinics"
+authors = [
+  { name = "owenstack" },
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License"
+]
+requires-python = "~=3.10.0"
+dependencies = [
+    "matplotlib>=3.10.3",
+    "numpy>=2.2.6",
+    "openpyxl>=3.1.5",
+    "pandas>=2.3.0",
+    "scikit-learn>=1.7.0",
+    "scipy>=1.15.3",
+    "seaborn>=0.13.2",
+    "statsmodels>=0.14.4",
+]
+
+
+[tool.ruff]
+line-length = 99
+src = ["hiv_enugu"]
+include = ["pyproject.toml", "hiv_enugu/**/*.py"]
+
+[tool.ruff.lint]
+extend-select = ["I"]  # Add import sorting
+
+[tool.ruff.lint.isort]
+known-first-party = ["hiv_enugu"]
+force-sort-within-sections = true
+
+[tool.uv.sources]
+hiv-enugu = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "hiv-enugu",
+    "loguru>=0.7.3",
+    "mkdocs>=1.6.1",
+    "pip>=25.1.1",
+    "python-dotenv>=1.1.1",
+    "ruff>=0.12.1",
+    "tqdm>=4.67.1",
+    "typer>=0.16.0",
+]
+

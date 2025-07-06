@@ -20,7 +20,7 @@ def prepare_data_for_modeling(df: pd.DataFrame, n_splits=5):
         # Try to handle internal NaNs by forward fill, if appropriate
         # This assumes that cumulative data should generally persist if a value is missing
         y_series = pd.Series(y)
-        y_series = y_series.fillna(method="ffill") # type: ignore
+        y_series = y_series.fillna(method="ffill")  # type: ignore
         y_series = y_series.fillna(method="bfill")  # For leading NaNs
         y = y_series.values
         if np.any(np.isnan(y)) or np.any(np.isinf(y)):

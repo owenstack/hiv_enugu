@@ -1,0 +1,10 @@
+Model,Type,RMSE,R²,MAE
+Exponential,Individual,7731.617008985204,-1.514063108954065,7057.186855965655
+Logistic,Individual,7576.950716101605,-1.248310388261132,7116.31245828864
+Richards,Individual,3332.4420796110544,0.4306118321477399,2828.093941460788
+Gompertz,Individual,7854.853787467298,-1.2094216434075278,7195.644272183228
+Simple Average,Ensemble,,,
+Weighted Average (R2),Ensemble,,,
+Weighted Average (InvMSE),Ensemble,,,
+Random Forest,Ensemble,,,
+Gradient Boosting,Ensemble,,,

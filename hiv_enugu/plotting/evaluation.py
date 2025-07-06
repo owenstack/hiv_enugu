@@ -69,7 +69,14 @@ def visualize_individual_models(
 
 @plot_manager
 def visualize_ensemble_comparison(
-    df: pd.DataFrame, X, y, cv_splits, fitted_models, ensemble_models_dict, best_model_name, **kwargs
+    df: pd.DataFrame,
+    X,
+    y,
+    cv_splits,
+    fitted_models,
+    ensemble_models_dict,
+    best_model_name,
+    **kwargs,
 ):  # Renamed ensemble_models to ensemble_models_dict
     """Visualize and compare ensemble models performance."""
     fig = plt.figure(figsize=(16, 10))
@@ -77,8 +84,20 @@ def visualize_ensemble_comparison(
     # Use the last CV split for train/test visualization
     train_idx, test_idx = cv_splits[-1]
 
-    plt.scatter(df['date'].iloc[train_idx], y[train_idx], color='blue', alpha=0.6, label='Training Data (last fold)')
-    plt.scatter(df['date'].iloc[test_idx], y[test_idx], color='red', alpha=0.6, label='Testing Data (last fold)')
+    plt.scatter(
+        df["date"].iloc[train_idx],
+        y[train_idx],
+        color="blue",
+        alpha=0.6,
+        label="Training Data (last fold)",
+    )
+    plt.scatter(
+        df["date"].iloc[test_idx],
+        y[test_idx],
+        color="red",
+        alpha=0.6,
+        label="Testing Data (last fold)",
+    )
 
     # Plot best individual model
     if best_model_name in fitted_models:
@@ -95,7 +114,14 @@ def visualize_ensemble_comparison(
             label=f"Best Individual ({best_model_name})",
         )
 
-    colors = ["purple", "orange", "brown", "magenta", "cyan", "lime"]  # Cycle through these for ensembles
+    colors = [
+        "purple",
+        "orange",
+        "brown",
+        "magenta",
+        "cyan",
+        "lime",
+    ]  # Cycle through these for ensembles
     ensemble_models_to_plot = [
         "Simple Average",
         "Weighted Average (R2)",
@@ -256,7 +282,7 @@ def visualize_metrics_comparison(
     plt.tight_layout(rect=(0, 0, 1, 0.97))  # Adjust rect to prevent suptitle overlap if added
     fig.suptitle("Model Performance Metrics Comparison", fontsize=18, y=0.99)
     # filename kwarg is handled by plot_manager
-    return fig, metrics_df # Return the DataFrame as well
+    return fig, metrics_df  # Return the DataFrame as well
 
 
 @plot_manager
@@ -343,11 +369,16 @@ def create_validation_plot(
 
 @plot_manager
 def visualize_single_model_fit(
-    df: pd.DataFrame, X: np.ndarray, y: np.ndarray,
-    model_name: str, model_details: dict,
-    final_train_idx: np.ndarray, final_test_idx: np.ndarray,
-    y_train: np.ndarray, y_test: np.ndarray,
-    **kwargs
+    df: pd.DataFrame,
+    X: np.ndarray,
+    y: np.ndarray,
+    model_name: str,
+    model_details: dict,
+    final_train_idx: np.ndarray,
+    final_test_idx: np.ndarray,
+    y_train: np.ndarray,
+    y_test: np.ndarray,
+    **kwargs,
 ):
     """
     Visualize a single model's fit against observed data (training and testing).
@@ -391,12 +422,19 @@ def visualize_single_model_fit(
 
     metrics_text = f"RMSE: {rmse_full:.2f}\nMAE: {mae_full:.2f}\nR²: {r2_full:.3f}"
     # Position the text box; adjust as needed
-    plt.text(0.05, 0.95, metrics_text, transform=plt.gca().transAxes, fontsize=10,
-             verticalalignment='top', bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5))
-
+    plt.text(
+        0.05,
+        0.95,
+        metrics_text,
+        transform=plt.gca().transAxes,
+        fontsize=10,
+        verticalalignment="top",
+        bbox=dict(boxstyle="round,pad=0.5", fc="yellow", alpha=0.5),
+    )
 
     plt.title(
-        f"Observed vs. Predicted: {model_name} Model\nEnugu State HIV Data (2007-2023)", fontsize=16
+        f"Observed vs. Predicted: {model_name} Model\nEnugu State HIV Data (2007-2023)",
+        fontsize=16,
     )
     plt.xlabel("Date", fontsize=14)
     plt.ylabel("Cumulative Number of HIV Patients", fontsize=14)
@@ -554,10 +592,10 @@ def forecast_future_trends(
 
 @plot_manager
 def plot_feature_importances(
-    ensemble_models_dict: dict, # Full dictionary of all ensemble models
-    model_name_key: str,        # Specific model to plot (e.g., "Random Forest")
+    ensemble_models_dict: dict,  # Full dictionary of all ensemble models
+    model_name_key: str,  # Specific model to plot (e.g., "Random Forest")
     top_n: int = 15,
-    **kwargs                    # For plot_manager (filename) and model_display_name
+    **kwargs,  # For plot_manager (filename) and model_display_name
 ):
     """
     Creates and saves a bar plot of feature importances for a specified ML model.
@@ -565,7 +603,9 @@ def plot_feature_importances(
     This function is designed to be called once per model (e.g., once for RF, once for GB).
     """
     if model_name_key not in ensemble_models_dict:
-        print(f"Model '{model_name_key}' not found in ensemble_models_dict. Cannot plot feature importances.")
+        print(
+            f"Model '{model_name_key}' not found in ensemble_models_dict. Cannot plot feature importances."
+        )
         # To prevent plot_manager from erroring on None, maybe return an empty fig or handle upstream
         # For now, let pipeline handle the check before calling. Or plot_manager should handle None.
         # If we must return a fig: fig = plt.figure(); plt.text(0.5,0.5, "Model not found"); return fig
@@ -575,13 +615,15 @@ def plot_feature_importances(
     model_obj = model_info.get("model")
     feature_names = model_info.get("feature_names")
 
-    if not (model_obj and hasattr(model_obj, 'feature_importances_') and feature_names):
+    if not (model_obj and hasattr(model_obj, "feature_importances_") and feature_names):
         print(f"Feature importances or names not available for '{model_name_key}'. Skipping plot.")
         return None
 
     importances = model_obj.feature_importances_
-    if not isinstance(importances, np.ndarray) or not importances.size > 0 :
-        print(f"Importances for {model_name_key} are not a valid array or are empty. Skipping plot.")
+    if not isinstance(importances, np.ndarray) or not importances.size > 0:
+        print(
+            f"Importances for {model_name_key} are not a valid array or are empty. Skipping plot."
+        )
         return None
 
     named_importances = sorted(zip(feature_names, importances), key=lambda x: x[1], reverse=True)
@@ -595,15 +637,24 @@ def plot_feature_importances(
     top_features = [item[0] for item in named_importances[:actual_top_n]]
     top_importances = [item[1] for item in named_importances[:actual_top_n]]
 
-    fig = plt.figure(figsize=(12, max(6, actual_top_n * 0.45))) # Adjust height
+    fig = plt.figure(figsize=(12, max(6, actual_top_n * 0.45)))  # Adjust height
     # Using hue for individual colors per bar, but then hiding legend as it's redundant.
-    sns.barplot(x=top_importances, y=top_features, palette="viridis", hue=top_features, dodge=False, legend=False)
+    sns.barplot(
+        x=top_importances,
+        y=top_features,
+        palette="viridis",
+        hue=top_features,
+        dodge=False,
+        legend=False,
+    )
 
-    display_name = kwargs.get('model_display_name', model_name_key) # Use passed display name or the key
+    display_name = kwargs.get(
+        "model_display_name", model_name_key
+    )  # Use passed display name or the key
     plt.title(f"Top {actual_top_n} Feature Importances: {display_name}", fontsize=16)
     plt.xlabel("Importance Score", fontsize=14)
     plt.ylabel("Features", fontsize=14)
-    plt.gca().invert_yaxis() # Display most important at the top
+    plt.gca().invert_yaxis()  # Display most important at the top
     plt.tight_layout()
 
-    return fig # plot_manager decorator will save this using 'filename' from kwargs
+    return fig  # plot_manager decorator will save this using 'filename' from kwargs

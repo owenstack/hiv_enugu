@@ -9,6 +9,7 @@ This project analyzes HIV case data from Enugu State, Nigeria, using various gro
 ## Running the Analysis
 
 The primary way to run the full analysis pipeline is using the `run_analysis.py` script located in the root directory. This script will:
+
 1. Load and preprocess data from `data/cleaned_enrollments.csv`.
 2. Fit individual growth models and ensemble models.
 3. Evaluate models using cross-validation.
@@ -17,19 +18,22 @@ The primary way to run the full analysis pipeline is using the `run_analysis.py`
 6. Save forecast data to `data/forecast_results_next_5_years.csv`.
 
 You can run the analysis using Make:
+
 ```bash
 make run-analysis
 ```
+
 This requires that you have set up the environment and installed dependencies (e.g., via `make requirements` or `uv pip install -r requirements.txt`).
 
 Alternatively, you can run the script directly:
+
 ```bash
 python run_analysis.py
 ```
 
 ## Project Organization
 
-```
+```chart
 ├── LICENSE            <- Open-source license if one is chosen
 ├── Makefile           <- Makefile with convenience commands like `make data` or `make train`
 ├── README.md          <- The top-level README for developers using this project.
@@ -79,4 +83,3 @@ python run_analysis.py
 ```
 
 --------
-

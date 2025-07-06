@@ -12,7 +12,7 @@ def generate_bootstrap_predictions(model_func, X, params, n_samples=100, confide
 
     predictions = np.array(predictions)
     mean_pred = np.mean(predictions, axis=0)
-    ci_lower = np.percentile(predictions, (1 - confidence) * 100 / 2, axis=0)
-    ci_upper = np.percentile(predictions, (1 + confidence) * 100 / 2, axis=0)
+    ci_lower = np.percentile(predictions, ((1 - confidence) * 100) / 2, axis=0)
+    ci_upper = np.percentile(predictions, ((1 + confidence) * 100) / 2, axis=0)
 
     return mean_pred, ci_lower, ci_upper

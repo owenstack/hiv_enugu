@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 import joblib
 import os
-from hiv_enugu.modeling.data_prep import load_and_prepare_data_for_modeling
 from hiv_enugu.modeling.features import create_ml_features
 from hiv_enugu.config import PROCESSED_DATA_DIR, MODELS_DIR
+from hiv_enugu.data_processing import load_data
 
 # Define paths
 PROCESSED_DATA_PATH = PROCESSED_DATA_DIR / "cleaned_enrollments.csv"
@@ -42,7 +42,7 @@ def main():
     print("Starting HIV Prediction Pipeline...")
 
     # 1. Load Data
-    df = load_and_prepare_data_for_modeling(PROCESSED_DATA_PATH)
+    df = load_data(PROCESSED_DATA_PATH)
     if df is None:
         print("Failed to load data. Exiting.")
         return

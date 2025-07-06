@@ -11,12 +11,13 @@ from hiv_enugu.modeling.ensemble import build_ensemble_models
 from hiv_enugu.utils import generate_bootstrap_predictions
 
 from hiv_enugu.plotting.evaluation import (
-    visualize_model_fits,
+    visualize_individual_models,
     visualize_ensemble_comparison,
     visualize_metrics_comparison,
     create_validation_plot,
     forecast_future_trends
 )
+from hiv_enugu.config import RAW_DATA_DIR, PROCESSED_DATA_DIR, FIGURES_DIR
 # plot_basic_timeseries is called within load_data, so not explicitly here.
 # Diagnostic plots (residuals, qq, histogram) are called within fit_growth_models.
 
@@ -27,28 +28,7 @@ def main():
     # Define the data file path
     # This path should exist relative to where run_analysis.py is executed
     # or be an absolute path.
-    file_path = 'data/cleaned_enrollments.csv'
-
-    # Check if data file exists, create a dummy if not for demonstration
-    if not os.path.exists(file_path):
-        print(f"Warning: Data file {file_path} not found.")
-        print("Attempting to create a dummy data file for demonstration purposes.")
-        os.makedirs('data', exist_ok=True)
-        dummy_data = {
-            'date': pd.to_datetime([
-                '2007-01-01', '2007-01-08', '2007-01-15', '2007-01-22', '2007-01-29', '2007-02-05',
-                # Add more data points to satisfy prepare_data_for_modeling length checks (min 52 for no warning)
-                # This is just a minimal example; real analysis needs more data.
-                *pd.date_range(start='2007-02-12', periods=52-6, freq='W') # Ensure at least 52 weeks
-            ]),
-            'number': np.random.randint(5, 20, size=52),
-        }
-        dummy_df = pd.DataFrame(dummy_data)
-        dummy_df['cumulative'] = dummy_df['number'].cumsum()
-        dummy_df.to_csv(file_path, index=False)
-        print(f"Dummy file {file_path} created with {len(dummy_df)} rows.")
-
-
+    file_path = PROCESSED_DATA_DIR / 'cleaned_enrollments.csv'
     # 1. Load and explore data
     print("Step 1: Loading data...")
     df_weekly = load_data(file_path)
@@ -82,8 +62,8 @@ def main():
     # Use last split for some visualization details if needed by plot functions
     # The plotting functions themselves are responsible for using these indices if they need specific train/test sets
     final_train_idx, final_test_idx = cv_splits[-1] if cv_splits else (np.array([]), np.array([]))
-    y_train_for_plot = y[final_train_idx] if final_train_idx.size > 0 else y
-    y_test_for_plot = y[final_test_idx] if final_test_idx.size > 0 else y
+    y_train = y[final_train_idx] if final_train_idx.size > 0 else y
+    y_test = y[final_test_idx] if final_test_idx.size > 0 else y
 
     # 3. Fit individual growth models
     print("\nStep 3: Fitting individual growth models...")
@@ -98,14 +78,14 @@ def main():
 
     # 4. Visualize individual model fits
     print("\nStep 4: Visualizing individual model fits...")
-    visualize_model_fits(df_weekly, X, y, final_train_idx, final_test_idx, y_train_for_plot, y_test_for_plot,
-                         fitted_models, filename='hiv_individual_models_comparison.png')
+    visualize_individual_models(df_weekly, X, final_train_idx, final_train_idx, y_train, y_test, fitted_models,
+                                filename='hiv_individual_models_comparison.png')
     print("Individual model fit visualization complete.")
 
     # 5. Build ensemble models
     print("\nStep 5: Building ensemble models...")
     # The build_ensemble_models from user's code takes X, y, fitted_models, cv_splits
-    ensemble_models_dict, ensemble_metrics_dict = build_ensemble_models(X, y, fitted_models, cv_splits)
+    ensemble_models_dict, ensemble_metrics_dict = build_ensemble_models(X, y, fitted_models, model_metrics, cv_splits)
     if not ensemble_models_dict:
         print("No ensemble models were successfully built. Proceeding with individual models only for remaining steps.")
         # Set ensemble_metrics_dict to empty if no models, to avoid errors later
@@ -152,7 +132,6 @@ def main():
             fitted_models[best_model_name],
             ensemble_models_dict[best_ensemble_model_name],
             best_ensemble_model_name, # ensemble_name for the plot title/label
-            fitted_models, # Pass all fitted_models (used by some versions of this plot in prompt)
             best_model_name,
             filename='hiv_model_validation_plot.png'
         )

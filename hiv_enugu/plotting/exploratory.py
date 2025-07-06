@@ -46,3 +46,18 @@ def plot_exploratory_visualizations(df, **kwargs):
 
     plt.tight_layout(rect=(0, 0, 1, 0.96))
     return fig
+
+
+@plot_manager
+def plot_basic_timeseries(df, **kwargs): # Added **kwargs to match decorator
+    """Create basic time series plot of the data for cumulative cases"""
+    # df here is expected to be the weekly_df from load_data
+    # It should have 'date' and 'cumulative' columns.
+    fig = plt.figure(figsize=(12, 6)) # Create a new figure
+    plt.plot(df['date'], df['cumulative'], marker='o', linestyle='-', alpha=0.7)
+    plt.title('Cumulative HIV Cases Over Time (Weekly)') # Adjusted title
+    plt.xlabel('Date')
+    plt.ylabel('Cumulative Number of HIV Patients')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    return fig # Return the figure object for the decorator

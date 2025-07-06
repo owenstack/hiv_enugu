@@ -1,8 +1,21 @@
+# Core data science and modeling
+pandas
+numpy
+scipy
+scikit-learn
+joblib
+matplotlib
+seaborn
+openpyxl # For wider Excel support in pandas, though current script uses CSV
+
+# Existing utilities and development tools
 loguru
 mkdocs
-pip
+# pip # Generally not listed as a requirement itself
 python-dotenv
 ruff
 tqdm
 typer
+
+# To install the current package (hiv_enugu)
 -e .

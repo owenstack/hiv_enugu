@@ -159,7 +159,7 @@ def visualize_metrics_comparison(model_metrics, ensemble_metrics, **kwargs):
     metrics_df["RMSE_norm"] = (metrics_df["RMSE"] - metrics_df["RMSE"].min()) / (
         metrics_df["RMSE"].max() - metrics_df["RMSE"].min() + 1e-10
     )
-    metrics_df["R²_norm"] = (metrics_df["R²"] - metrics_df["R²"].min()) / (
+    metrics_df["R²_norm"] = 1 - (metrics_df["R²"] - metrics_df["R²"].min()) / (
         metrics_df["R²"].max() - metrics_df["R²"].min() + 1e-10
     )
     metrics_df["MAE_norm"] = (metrics_df["MAE"] - metrics_df["MAE"].min()) / (

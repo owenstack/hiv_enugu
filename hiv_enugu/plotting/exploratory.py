@@ -1,117 +1,48 @@
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import seaborn as sns
-import numpy as np
 import pandas as pd
 from .utils import plot_manager
-from pandas import DataFrame
 
 
 @plot_manager
-def plot_yearly_enrollment_trends(yearly_stats: DataFrame, **kwargs):
-    """Plots the yearly trends for mean enrollments and zero enrollment days."""
-    fig, ax1 = plt.subplots(figsize=(12, 6))
+def plot_exploratory_visualizations(df, **kwargs):
+    """Generate and save a grid of exploratory data visualizations."""
+    fig, axes = plt.subplots(2, 2, figsize=(20, 16))
+    fig.suptitle("Exploratory Data Analysis of HIV Cases in Enugu State", fontsize=20)
 
-    # Bar chart for mean enrollments
-    ax1.bar(
-        yearly_stats.index, yearly_stats["Mean"], color="skyblue", label="Mean Daily Enrollment"
-    )
-    ax1.set_xlabel("Year")
-    ax1.set_ylabel("Mean Daily Enrollment", color="skyblue")
-    ax1.tick_params(axis="y", labelcolor="skyblue")
+    # Plot 1: Time Series of New Enrollments
+    ax = axes[0, 0]
+    ax.plot(df['date'], df['enrollment'], label='Newly Enrolled', color='teal')
+    ax.set_title('Time Series of New HIV Enrollments')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Number of People')
+    ax.legend()
 
-    # Line chart for standard deviation
-    ax2 = ax1.twinx()
-    ax2.plot(
-        yearly_stats.index,
-        yearly_stats["Std"],
-        color="coral",
-        marker="o",
-        label="Std. Dev. of Daily Enrollment",
-    )
-    ax2.set_ylabel("Standard Deviation", color="coral")
-    ax2.tick_params(axis="y", labelcolor="coral")
+    # Plot 2: Yearly Distribution of New Enrollments
+    ax = axes[0, 1]
+    sns.boxplot(x='year', y='enrollment', data=df, ax=ax)
+    ax.set_title('Yearly Distribution of New Enrollments')
+    ax.set_xlabel('Year')
+    ax.set_ylabel('Newly Enrolled')
+    ax.tick_params(axis='x', rotation=45)
 
-    plt.title("Yearly Enrollment Trends")
-    fig.tight_layout()
-    return fig
+    # Plot 3: Monthly Trend of New Enrollments
+    ax = axes[1, 0]
+    monthly_trend = df.groupby('month')['enrollment'].mean()
+    monthly_trend.plot(kind='bar', ax=ax, color='skyblue')
+    ax.set_title('Average Monthly Trend of New Enrollments')
+    ax.set_xlabel('Month')
+    ax.set_ylabel('Average Number of People')
+    ax.tick_params(axis='x', rotation=0)
 
+    # Plot 4: Cumulative Enrollments Over Time
+    ax = axes[1, 1]
+    ax.plot(df['date'], df['cumulative'], label='Cumulative', color='purple')
+    ax.set_title('Cumulative HIV Cases Over Time')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Total Number of People')
+    ax.legend()
 
-@plot_manager
-def plot_yearly_distribution(df: DataFrame, **kwargs):
-    """Plots the distribution of enrollments by year."""
-    fig, ax = plt.subplots(figsize=(15, 8))
-    sns.boxplot(data=df, x="Year", y="enrollment", ax=ax)
-    plt.title("Enrollment Distribution by Year")
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    return fig
-
-
-@plot_manager
-def plot_monthly_enrollment_trends(monthly_stats: DataFrame, **kwargs):
-    """Plots the average daily enrollments by month."""
-    month_order = [
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-    ]
-    monthly_stats.index = pd.CategoricalIndex(
-        monthly_stats.index, categories=month_order, ordered=True
-    )
-    monthly_stats = monthly_stats.sort_index()
-
-    fig, ax = plt.subplots(figsize=(12, 6))
-    ax.bar(monthly_stats.index, monthly_stats["mean"])
-    plt.title("Average Enrollments by Month")
-    plt.xlabel("Month")
-    plt.ylabel("Mean Daily Enrollments")
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    return fig
-
-
-@plot_manager
-def plot_enrollment_boxplot(df: DataFrame, **kwargs):
-    """Plots a box plot of daily enrollments."""
-    fig, ax = plt.subplots(figsize=(8, 6))
-    sns.boxplot(y=df["enrollment"], ax=ax)
-    plt.title("Box Plot of Daily Enrollments")
-    plt.ylabel("Number of Enrollments")
-    plt.tight_layout()
-    return fig
-
-
-@plot_manager
-def plot_enrollment_timeseries(df: DataFrame, **kwargs):
-    """Plots the time series of daily enrollments."""
-    fig, ax = plt.subplots(figsize=(15, 5))
-    ax.plot(df["date"], df["enrollment"])
-    plt.title("Time Series of Daily Enrollments")
-    plt.xlabel("Date")
-    plt.ylabel("Number of Enrollments")
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    return fig
-
-
-@plot_manager
-def plot_cleaned_timeseries(df: DataFrame, **kwargs):
-    """Plots the time series of cleaned daily enrollments."""
-    fig, ax = plt.subplots(figsize=(15, 5))
-    ax.plot(df["date"], df["enrollment_cleaned"])
-    plt.title("Time Series of Cleaned Daily Enrollments")
-    plt.xlabel("Date")
-    plt.ylabel("Number of Enrollments")
-    plt.xticks(rotation=45)
-    plt.tight_layout()
+    plt.tight_layout(rect=(0, 0, 1, 0.96))
     return fig

@@ -1,14 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
-from plotting.exploratory import (
-    plot_yearly_enrollment_trends,
-    plot_yearly_distribution,
-    plot_monthly_enrollment_trends,
-    plot_enrollment_boxplot,
-    plot_enrollment_timeseries,
-    plot_cleaned_timeseries,
-)
+from hiv_enugu.plotting.exploratory import plot_exploratory_visualizations
 from hiv_enugu.config import FIGURES_DIR, PROCESSED_DATA_DIR, RAW_DATA_DIR
 from loguru import logger
 from pathlib import Path
@@ -66,12 +59,6 @@ def analyze_and_visualize_trends(df: DataFrame):
     logger.info("\nMonthly Statistics:")
     logger.info(monthly_stats)
 
-    # Generate plots
-    plot_yearly_enrollment_trends(yearly_stats, filename="yearly_trends.png")
-    plot_yearly_distribution(df, filename="yearly_distributions.png")
-    plot_monthly_enrollment_trends(monthly_stats, filename="monthly_trends.png")
-    logger.info("\nTrend visualizations saved.")
-
 
 def analyze_outliers(df: DataFrame):
     """Identifies and analyzes outliers in the enrollment data."""
@@ -88,11 +75,6 @@ def analyze_outliers(df: DataFrame):
     if not outliers.empty:
         logger.info("Top 5 outliers:")
         logger.info(outliers.nlargest(5, "enrollment"))
-
-    # Generate plots
-    plot_enrollment_boxplot(df, filename="enrollments_boxplot.png")
-    plot_enrollment_timeseries(df, filename="enrollments_timeseries.png")
-    logger.info("\nOutlier visualizations saved.")
 
 
 def finalize_and_save(df: DataFrame, output_path: Path):
@@ -114,21 +96,23 @@ def finalize_and_save(df: DataFrame, output_path: Path):
     df.to_csv(output_path, index=False)
     logger.info(f"\nAnalysis complete. Cleaned data saved to {output_path}")
 
-    # Plot cleaned data
-    plot_cleaned_timeseries(df, filename="enrollments_cleaned_timeseries.png")
-    logger.info("Cleaned data visualization saved.")
-
 
 def main():
-    """Main function to run the full data analysis pipeline."""
-    # Ensure figures directory exists
-    os.makedirs(FIGURES_DIR, exist_ok=True)
-
-    df_complete = load_and_clean_data(RAW_DATA_DIR / "data.xlsx")
-    if df_complete is not None:
-        analyze_and_visualize_trends(df_complete)
-        analyze_outliers(df_complete)
-        finalize_and_save(df_complete, PROCESSED_DATA_DIR / "cleaned_enrollments.csv")
+    """Main function to run data processing and generate initial plots."""
+    logger.info("Starting data processing...")
+    raw_df = load_and_clean_data(RAW_DATA_DIR / "data.xlsx")
+    if raw_df is not None:
+        raw_df['enrollment'] = raw_df['enrollment'].fillna(0)
+        raw_df['cumulative'] = raw_df['enrollment'].cumsum()
+        raw_df['year'] = raw_df['date'].dt.year
+        raw_df['month'] = raw_df['date'].dt.month
+        analyze_and_visualize_trends(raw_df)
+        analyze_outliers(raw_df)
+        finalize_and_save(raw_df, PROCESSED_DATA_DIR / "cleaned_enrollments.csv")
+        plot_exploratory_visualizations(
+            raw_df, filename="exploratory_data_analysis.png"
+        )
+        logger.info("Exploratory visualizations saved to reports/figures/")
 
 
 if __name__ == "__main__":

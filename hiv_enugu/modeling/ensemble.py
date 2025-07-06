@@ -4,6 +4,7 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from hiv_enugu.modeling.features import create_ml_features
+from hiv_enugu.config import MODELS_DIR
 import joblib
 import os
 
@@ -55,7 +56,7 @@ def build_ensemble_models(X, y, fitted_models, model_metrics, cv_splits):
 
     # ML-based Ensembles
 
-    ml_features = create_ml_features(X, base_features, X_full=X)
+    ml_features = create_ml_features(X, fitted_models, X)
     scaler = StandardScaler().fit(ml_features)
     ml_features_scaled = scaler.transform(ml_features)
 
@@ -80,7 +81,7 @@ def build_ensemble_models(X, y, fitted_models, model_metrics, cv_splits):
             base_preds_new = np.column_stack(
                 [m["function"](x_new, *m["parameters"]) for m in fitted_models.values()]
             )
-            ml_features_new = create_ml_features(x_new, base_preds_new, X_full=x_new)
+            ml_features_new = create_ml_features(x_new, fitted_models, x_new)
             return model.predict(scaler.transform(ml_features_new))
         return predictor
 
@@ -96,9 +97,9 @@ def build_ensemble_models(X, y, fitted_models, model_metrics, cv_splits):
         }
 
     # Save models
-    os.makedirs("saved_models", exist_ok=True)
-    joblib.dump(best_rf, "saved_models/rf_model.pkl")
-    joblib.dump(best_gb, "saved_models/gb_model.pkl")
-    joblib.dump(scaler, "saved_models/feature_scaler.pkl")
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    joblib.dump(best_rf, MODELS_DIR/"rf_model.pkl")
+    joblib.dump(best_gb, MODELS_DIR/"gb_model.pkl")
+    joblib.dump(scaler, MODELS_DIR/"feature_scaler.pkl")
 
     return ensemble_models, ensemble_metrics

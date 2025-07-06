@@ -63,22 +63,29 @@ create_environment:
 data: requirements
 	$(PYTHON_INTERPRETER) hiv_enugu/data_processing.py
 
-## Run the full analysis pipeline
+## Run the full analysis pipeline (training and analysis mode)
 .PHONY: run-analysis
 run-analysis: requirements
-	$(PYTHON_INTERPRETER) run_analysis.py
+	$(PYTHON_INTERPRETER) hiv_enugu/analysis_pipeline.py
 
-# The following targets point to older, potentially superseded scripts.
-# Kept for reference or if specific parts of the old pipeline are needed.
-## Run the original training script
-#.PHONY: train
-#train: requirements
-#	$(PYTHON_INTERPRETER) hiv_enugu/modeling/train.py
-
-## Run the original prediction script
-#.PHONY: predict
-#predict: requirements
-#	$(PYTHON_INTERPRETER) hiv_enugu/modeling/predict.py
+# The functionality of the old train.py and predict.py scripts is now consolidated
+# into hiv_enugu/analysis_pipeline.py, which can be run with different modes.
+# The `run-analysis` target above runs the default "train_and_analyze" mode.
+#
+# If you need to run only prediction, you would modify analysis_pipeline.py
+# to accept command-line arguments for the mode, or call it like:
+# $(PYTHON_INTERPRETER) -c "from hiv_enugu.analysis_pipeline import main_pipeline; main_pipeline(mode='predict', data_file='your_prediction_input.csv')"
+#
+# Example commented-out targets for specific modes (would require analysis_pipeline.py to parse sys.argv or similar):
+# ## Run only the training part of the consolidated pipeline
+# .PHONY: train-pipeline
+# train-pipeline: requirements
+#	$(PYTHON_INTERPRETER) hiv_enugu/analysis_pipeline.py --mode train_and_analyze # Assuming default or explicit mode
+#
+# ## Run only the prediction part of the consolidated pipeline
+# .PHONY: predict-pipeline
+# predict-pipeline: requirements
+#	$(PYTHON_INTERPRETER) hiv_enugu/analysis_pipeline.py --mode predict --data-file name_of_file_for_prediction.csv
 
 
 #################################################################################

@@ -179,21 +179,24 @@ def visualize_metrics_comparison(
     ax1.set_title("Test Root Mean Squared Error (RMSE) Comparison", fontsize=14)
     ax1.set_xlabel("")
     ax1.set_ylabel("RMSE (lower is better)", fontsize=12)
-    ax1.tick_params(axis="x", rotation=45, ha="right")
+
+    plt.setp(ax1.get_xticklabels(), rotation=45)
 
     ax2 = fig.add_subplot(gs[0, 1])
     sns.barplot(x="Model", y="R²", hue="Type", data=metrics_df, ax=ax2, dodge=True)
     ax2.set_title("Test R² Score Comparison", fontsize=14)
     ax2.set_xlabel("")
     ax2.set_ylabel("R² (higher is better)", fontsize=12)
-    ax2.tick_params(axis="x", rotation=45, ha="right")
+
+    plt.setp(ax2.get_xticklabels(), rotation=45)
 
     ax3 = fig.add_subplot(gs[1, 0])
     sns.barplot(x="Model", y="MAE", hue="Type", data=metrics_df, ax=ax3, dodge=True)
     ax3.set_title("Test Mean Absolute Error (MAE) Comparison", fontsize=14)
     ax3.set_xlabel("")
     ax3.set_ylabel("MAE (lower is better)", fontsize=12)
-    ax3.tick_params(axis="x", rotation=45, ha="right")
+
+    plt.setp(ax3.get_xticklabels(), rotation=45)
 
     # Overall Score Plot (as in user's code)
     ax4 = fig.add_subplot(gs[1, 1])
@@ -246,7 +249,8 @@ def visualize_metrics_comparison(
     ax4.set_title("Overall Model Performance Score (Normalized)", fontsize=14)
     ax4.set_xlabel("")
     ax4.set_ylabel("Performance Score (higher is better)", fontsize=12)
-    ax4.tick_params(axis="x", rotation=45, ha="right")
+
+    plt.setp(ax4.get_xticklabels(), rotation=45)
 
     plt.tight_layout(rect=(0, 0, 1, 0.97))  # Adjust rect to prevent suptitle overlap if added
     fig.suptitle("Model Performance Metrics Comparison", fontsize=18, y=0.99)

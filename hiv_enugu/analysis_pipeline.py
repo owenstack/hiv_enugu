@@ -20,10 +20,32 @@ from hiv_enugu.plotting.evaluation import (
     visualize_ensemble_comparison,
     visualize_metrics_comparison,
     create_validation_plot,
-    forecast_future_trends
+    forecast_future_trends,
+    visualize_single_model_fit
 )
 from hiv_enugu.plotting.diagnostics import plot_residuals, plot_residuals_histogram
-from hiv_enugu.config import PROCESSED_DATA_DIR, FIGURES_DIR, MODELS_DIR
+from hiv_enugu.reporting import ( # New imports
+    generate_coefficient_table,
+    generate_standalone_metrics_table,
+    generate_ensemble_input_tables,
+    generate_full_predictions_table,
+    generate_predictions_summary_table,
+    generate_weighted_average_comparison_table,
+    generate_weighted_parameters_table,
+    generate_feature_importance_table # New
+)
+from hiv_enugu.plotting.evaluation import ( # Ensure plot_feature_importances is imported
+    visualize_individual_models,
+    visualize_ensemble_comparison,
+    visualize_metrics_comparison,
+    create_validation_plot,
+    forecast_future_trends,
+    visualize_single_model_fit,
+    plot_feature_importances # New
+)
+from hiv_enugu.config import PROCESSED_DATA_DIR, FIGURES_DIR, MODELS_DIR, REPORTS_DIR
+
+warnings.filterwarnings('ignore')
 
 warnings.filterwarnings('ignore')
 
@@ -202,10 +224,44 @@ def run_training_and_analysis(file_path_str: str) -> None:
     if not fitted_models_global: logger.error("No individual models fitted. Exiting."); return
     logger.info(f"Individual model fitting complete. Models: {list(fitted_models_global.keys())}")
 
-    # 4. Visualize individual model fits
-    logger.info("\nStep 4: Visualizing individual model fits...")
+    # --- New: Output for Standalone Growth Model Results (Request 2) ---
+    logger.info("\nStep 3.1: Generating reports for standalone growth models...")
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True) # Ensure reports directory exists
+
+    # 3.1.1. Model Coefficient Table
+    coeff_table_df = generate_coefficient_table(fitted_models_global, model_metrics_global)
+    coeff_table_path = REPORTS_DIR / "standalone_model_coefficients.csv"
+    coeff_table_df.to_csv(coeff_table_path, index=False)
+    logger.info(f"Standalone model coefficient table saved to {coeff_table_path}")
+    print("\n--- Standalone Model Coefficients ---")
+    print(coeff_table_df.to_string())
+
+    # 3.1.2. Model Performance Metrics Table
+    standalone_metrics_df = generate_standalone_metrics_table(model_metrics_global)
+    standalone_metrics_path = REPORTS_DIR / "standalone_model_metrics.csv"
+    standalone_metrics_df.to_csv(standalone_metrics_path, index=False)
+    logger.info(f"Standalone model performance metrics table saved to {standalone_metrics_path}")
+    print("\n--- Standalone Model Performance Metrics ---")
+    print(standalone_metrics_df.to_string())
+
+    # 3.1.3. Observed Vs. Predicted Charts (Individual)
+    logger.info("Generating individual observed vs. predicted plots for standalone models...")
+    for model_name, model_details in fitted_models_global.items():
+        if model_details and 'function' in model_details and 'parameters' in model_details:
+            visualize_single_model_fit(
+                df=df_weekly, X=X, y=y,
+                model_name=model_name, model_details=model_details,
+                final_train_idx=final_train_idx, final_test_idx=final_test_idx,
+                y_train=y_train, y_test=y_test,
+                filename=f"observed_vs_predicted_{model_name}.png"
+            )
+    logger.info("Individual observed vs. predicted plots generated.")
+    # --- End of New Section for Request 2 ---
+
+    # 4. Visualize individual model fits (Combined Plot)
+    logger.info("\nStep 4: Visualizing combined individual model fits...")
     visualize_individual_models(df_weekly, X, final_train_idx, final_test_idx, y_train, y_test, fitted_models_global, filename='individual_model_fits.png')
-    logger.info("Individual model fit visualization complete.")
+    logger.info("Combined individual model fit visualization complete.")
 
     # 5. Build ensemble models
     logger.info("\nStep 5: Building ensemble models...")
@@ -213,6 +269,117 @@ def run_training_and_analysis(file_path_str: str) -> None:
     ensemble_models_dict, ensemble_metrics_dict = build_ensemble_models(X, y, fitted_models_global, model_metrics_global, cv_splits)
     if not ensemble_models_dict: logger.warning("No ensemble models built."); ensemble_metrics_dict = {}
     logger.info(f"Ensemble model building complete. Models: {list(ensemble_models_dict.keys())}")
+
+    # --- New: Output for Ensemble Model Results (Request 3) ---
+    logger.info("\nStep 5.1: Generating reports for ensemble models...")
+    if ensemble_models_dict and fitted_models_global: # Ensure models exist
+        # Prepare X_time_idx as a Series for reporting functions (assuming X is time_idx)
+        # Use the full X, y for these reports, not just train/test split from last CV
+        X_time_idx_series = pd.Series(X.ravel(), name="Day")
+        y_actual_series = pd.Series(y.ravel(), name="Actual")
+        growth_model_names_list = list(fitted_models_global.keys())
+
+        # 5.1.1. Input Table (Combined Predictions for Each Ensemble Technique)
+        logger.info("Generating ensemble input tables...")
+        ensemble_input_tables_dict = generate_ensemble_input_tables(
+            X_time_idx=X_time_idx_series,
+            y_actual=y_actual_series, # Not strictly used in current table, but good to pass
+            fitted_growth_models=fitted_models_global,
+            ensemble_models_dict=ensemble_models_dict,
+            growth_model_names=growth_model_names_list
+        )
+        for ens_name, ens_df in ensemble_input_tables_dict.items():
+            ens_input_table_path = REPORTS_DIR / f"ensemble_input_table_{ens_name.replace(' ', '_')}.csv"
+            ens_df.to_csv(ens_input_table_path, index=False)
+            logger.info(f"Ensemble input table for {ens_name} saved to {ens_input_table_path}")
+            # print(f"\n--- Ensemble Input Table: {ens_name} ---") # Optional: print to console
+            # print(ens_df.head().to_string())
+
+        # 5.1.2. Full Prediction Table
+        logger.info("Generating full predictions table...")
+        full_preds_df = generate_full_predictions_table(
+            X_time_idx=X_time_idx_series,
+            y_actual=y_actual_series,
+            fitted_growth_models=fitted_models_global,
+            ensemble_models_dict=ensemble_models_dict,
+            growth_model_names=growth_model_names_list
+        )
+        full_preds_table_path = REPORTS_DIR / "full_predictions_table.csv"
+        full_preds_df.to_csv(full_preds_table_path, index=False)
+        logger.info(f"Full predictions table saved to {full_preds_table_path}")
+        # print("\n--- Full Predictions Table (First 5 rows) ---") # Optional: print to console
+        # print(full_preds_df.head().to_string())
+
+        # 5.1.3. Summary Table of Full Predictions
+        if not full_preds_df.empty:
+            logger.info("Generating predictions summary table...")
+            preds_summary_df = generate_predictions_summary_table(full_preds_df)
+            preds_summary_table_path = REPORTS_DIR / "predictions_summary_table.csv"
+            preds_summary_df.to_csv(preds_summary_table_path, index=False)
+            logger.info(f"Predictions summary table saved to {preds_summary_table_path}")
+            print("\n--- Predictions Summary Table ---")
+            print(preds_summary_df.to_string())
+        else:
+            logger.warning("Full predictions DataFrame is empty, skipping summary table generation.")
+
+        # --- New: Weighted Average Specific Reports (Request 3, continued) ---
+        # 5.1.4. Weighted Average Comparison Table
+        if ensemble_metrics_dict:
+            logger.info("Generating weighted average comparison table...")
+            wa_comparison_df = generate_weighted_average_comparison_table(ensemble_metrics_dict)
+            wa_comparison_path = REPORTS_DIR / "weighted_average_comparison.csv"
+            wa_comparison_df.to_csv(wa_comparison_path, index=False)
+            logger.info(f"Weighted average comparison table saved to {wa_comparison_path}")
+            print("\n--- Weighted Average Performance Comparison ---")
+            print(wa_comparison_df.to_string())
+
+        # 5.1.5. Weighted Parameters Table
+        if model_metrics_global and ensemble_models_dict:
+            logger.info("Generating weighted parameters table...")
+            # Pass model_metrics_global for growth rates, ensemble_models_dict for actual weights
+            weighted_params_df = generate_weighted_parameters_table(
+                model_metrics_global, ensemble_models_dict
+            )
+            weighted_params_path = REPORTS_DIR / "weighted_parameters_table.csv"
+            weighted_params_df.to_csv(weighted_params_path, index=False)
+            logger.info(f"Weighted parameters table saved to {weighted_params_path}")
+            print("\n--- Weighted Parameters Table (Growth Models) ---")
+            print(weighted_params_df.to_string())
+        # --- End of Weighted Average Specific Reports ---
+
+        # --- New: Feature Importance Reports (Request 4, continued) ---
+        # 5.1.6. Feature Importance Table and Plots for RF & GB
+        if ensemble_models_dict:
+            logger.info("Generating feature importance table for RF & GB...")
+            feature_importance_df = generate_feature_importance_table(ensemble_models_dict)
+            if not feature_importance_df.empty:
+                fi_table_path = REPORTS_DIR / "feature_importances_RF_GB.csv"
+                feature_importance_df.to_csv(fi_table_path, index=False)
+                logger.info(f"Feature importance table saved to {fi_table_path}")
+                print("\n--- Feature Importances (RF & GB) ---")
+                print(feature_importance_df.to_string())
+
+                logger.info("Generating feature importance plots for RF & GB...")
+                for model_key_for_fi in ["Random Forest", "Gradient Boosting"]:
+                    if model_key_for_fi in ensemble_models_dict and \
+                       ensemble_models_dict[model_key_for_fi].get("feature_names"):
+                        plot_feature_importances(
+                            ensemble_models_dict, # Pass the full dict
+                            model_name_key=model_key_for_fi, # Specify which model to plot from the dict
+                            model_display_name=model_key_for_fi, # For plot title
+                            filename=f"feature_importances_{model_key_for_fi.replace(' ', '_')}.png",
+                            top_n=15
+                        )
+                        logger.info(f"Feature importance plot for {model_key_for_fi} saved.")
+                    else:
+                        logger.info(f"Skipping feature importance plot for {model_key_for_fi} - model or features not found.")
+            else:
+                logger.warning("Feature importance DataFrame is empty. Skipping table save and plots.")
+        # --- End of Feature Importance Reports ---
+    else:
+        logger.warning("Skipping ensemble model reports generation: No ensemble or fitted growth models available.")
+    # --- End of New Section for Request 3 ---
+
 
     # 6. Identify best models (updates globals)
     logger.info("\nStep 6: Identifying best models...")
@@ -247,8 +414,29 @@ def _perform_post_modeling_visualizations(
 
     # 8. Compare model metrics
     logger.info("\nStep 8: Visualizing metrics comparison...")
-    visualize_metrics_comparison(model_metrics, ensemble_metrics_dict, filename='model_metrics_comparison.png')
+    # visualize_metrics_comparison now returns fig, metrics_df
+    _, all_metrics_df = visualize_metrics_comparison(
+        model_metrics, ensemble_metrics_dict, filename='model_metrics_comparison.png'
+    )
     logger.info("Metrics comparison visualization complete.")
+
+    # Save the combined metrics table (Request 4)
+    if all_metrics_df is not None and not all_metrics_df.empty:
+        all_metrics_table_path = REPORTS_DIR / "overall_evaluation_metrics.csv"
+        # Select and rename columns to match request: Model, RMSE, MAE, R²
+        # The df from visualize_metrics_comparison has 'Model', 'Type', 'RMSE', 'R²', 'MAE'
+        # We can keep 'Type' as it's informative.
+        report_cols = ["Model", "Type", "RMSE", "R²", "MAE"]
+        cols_to_save = [col for col in report_cols if col in all_metrics_df.columns]
+        all_metrics_df_to_save = all_metrics_df[cols_to_save]
+
+        all_metrics_df_to_save.to_csv(all_metrics_table_path, index=False)
+        logger.info(f"Overall evaluation metrics table saved to {all_metrics_table_path}")
+        print("\n--- Overall Evaluation Metrics ---")
+        print(all_metrics_df_to_save.to_string())
+    else:
+        logger.warning("Metrics DataFrame for overall evaluation is empty or None. Skipping save.")
+
 
     best_ind_model_obj = fitted_models.get(str(best_model_name)) if best_model_name else None
     best_ens_model_obj = ensemble_models_dict.get(str(best_ensemble_name)) if best_ensemble_name else None
@@ -267,13 +455,41 @@ def _perform_post_modeling_visualizations(
         X_diag, y_diag = (X[final_test_idx], y[final_test_idx]) if final_test_idx.size > 0 and y[final_test_idx].size > 0 else (X, y)
         if X_diag.size > 0 and y_diag.size > 0:
             y_pred_ensemble = best_ens_model_obj['predict'](X_diag)
-            plot_residuals(y_diag, y_pred_ensemble, str(best_ensemble_name), filename="residuals_plot_ensemble.png")
-            plot_residuals_histogram(y_diag, y_pred_ensemble, str(best_ensemble_name), filename="residuals_histogram_ensemble.png")
-            logger.info("Diagnostic plots complete.")
+            plot_residuals(y_diag, y_pred_ensemble, str(best_ensemble_name), filename=f"residuals_plot_{str(best_ensemble_name)}.png")
+            plot_residuals_histogram(y_diag, y_pred_ensemble, str(best_ensemble_name), filename=f"residuals_histogram_{str(best_ensemble_name)}.png")
+            residuals_ensemble = y_diag - y_pred_ensemble
+            plot_qq(residuals_ensemble, str(best_ensemble_name), filename=f"qq_plot_{str(best_ensemble_name)}.png")
+            logger.info(f"Diagnostic plots for best ensemble model ({best_ensemble_name}) complete.")
         else:
-            logger.warning("Skipping diagnostic plots: No diagnostic data (X_diag/y_diag empty).")
+            logger.warning("Skipping diagnostic plots for best ensemble: No diagnostic data (X_diag/y_diag empty).")
     else:
-        logger.info("Skipping diagnostic plots: Best ensemble model/name not available.")
+        logger.info("Skipping diagnostic plots for best ensemble: Best ensemble model/name not available.")
+
+    # Specific Residual Plots for RF and GB
+    logger.info("\nStep 10.1: Generating diagnostic plots for Random Forest and Gradient Boosting ensembles...")
+    X_diag_rf_gb, y_diag_rf_gb = (X[final_test_idx], y[final_test_idx]) if final_test_idx.size > 0 and y[final_test_idx].size > 0 else (X, y)
+    if X_diag_rf_gb.size > 0 and y_diag_rf_gb.size > 0:
+        for ens_model_name in ["Random Forest", "Gradient Boosting"]:
+            if ens_model_name in ensemble_models_dict:
+                current_ens_model_obj = ensemble_models_dict[ens_model_name]
+                if current_ens_model_obj and 'predict' in current_ens_model_obj:
+                    try:
+                        y_pred_current_ens = current_ens_model_obj['predict'](X_diag_rf_gb)
+                        residuals_current_ens = y_diag_rf_gb - y_pred_current_ens
+
+                        plot_residuals(y_diag_rf_gb, y_pred_current_ens, ens_model_name, filename=f"residuals_plot_{ens_model_name.replace(' ', '_')}.png")
+                        plot_residuals_histogram(residuals_current_ens, ens_model_name, filename=f"residuals_histogram_{ens_model_name.replace(' ', '_')}.png")
+                        plot_qq(residuals_current_ens, ens_model_name, filename=f"qq_plot_{ens_model_name.replace(' ', '_')}.png")
+                        logger.info(f"Diagnostic plots for {ens_model_name} complete.")
+                    except Exception as e:
+                        logger.error(f"Could not generate diagnostic plots for {ens_model_name}: {e}")
+                else:
+                    logger.warning(f"Predict function not found for {ens_model_name}, skipping its diagnostic plots.")
+            else:
+                logger.info(f"{ens_model_name} not found in ensemble_models_dict, skipping its diagnostic plots.")
+    else:
+        logger.warning("Skipping RF/GB diagnostic plots: No diagnostic data (X_diag_rf_gb/y_diag_rf_gb empty).")
+
 
     # 11. Forecast future trends
     logger.info("\nStep 11: Forecasting future trends...")

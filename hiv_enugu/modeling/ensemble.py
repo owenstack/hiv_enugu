@@ -68,7 +68,7 @@ def build_average_ensembles(X, y, cv_fitted_growth_models, cv_splits):
     _, test_index = cv_splits[-1]
     X_test, y_test = X[test_index], y[test_index]
 
-    model_names, r2_weights, inv_mse_weights = [], [], []
+    model_names, r2_scores, inv_mse_scores = [], [], []
     component_weights_for_reporting = {}
 
     for name, model in final_fold_growth_models.items():
@@ -76,29 +76,29 @@ def build_average_ensembles(X, y, cv_fitted_growth_models, cv_splits):
         r2 = r2_score(y_test, test_pred)
         mse = mean_squared_error(y_test, test_pred)
 
-        # Only use models with positive R-squared for weighting
-        if r2 > 0:
-            model_names.append(name)
-            r2_weights.append(r2)
-            inv_mse_weights.append(1 / (mse + 1e-9))  # Add epsilon for stability
+        model_names.append(name)
+        r2_scores.append(r2)
+        inv_mse_scores.append(1 / (mse + 1e-9))  # Add epsilon for stability
 
-            # **FIX**: Populate the reporting dictionary
-            component_weights_for_reporting[name] = {
-                "r2_score": r2,
-                "mse": mse,
-            }
+        component_weights_for_reporting[name] = {
+            "r2_score": r2,
+            "mse": mse,
+        }
 
     if not model_names:
-        print("Warning: No models with positive R2 found. Skipping weighted average ensembles.")
+        print("Warning: No models found to build weighted average ensembles.")
         return avg_ensemble_models, avg_ensemble_metrics
 
-    # Normalize weights
-    r2_weights = np.array(r2_weights) / np.sum(r2_weights)
-    inv_mse_weights = np.array(inv_mse_weights) / np.sum(inv_mse_weights)
+    # Calculate softmax weights for R2
+    exp_r2_scores = np.exp(r2_scores)
+    exp_r2_weights = exp_r2_scores / np.sum(exp_r2_scores)
 
-    # **FIX**: Add weights to the reporting dict
+    # Normalize inverse MSE weights
+    inv_mse_weights = np.array(inv_mse_scores) / np.sum(inv_mse_scores)
+
+    # Add weights to the reporting dict
     for i, name in enumerate(model_names):
-        component_weights_for_reporting[name]["r2_weight"] = r2_weights[i]
+        component_weights_for_reporting[name]["exp_r2_weight"] = exp_r2_weights[i]
         component_weights_for_reporting[name]["inv_mse_weight"] = inv_mse_weights[i]
 
     # Create closures for prediction
@@ -118,11 +118,11 @@ def build_average_ensembles(X, y, cv_fitted_growth_models, cv_splits):
     wa_r2_pred = np.average(
         np.column_stack([base_features_dict[name] for name in model_names]),
         axis=1,
-        weights=r2_weights,
+        weights=exp_r2_weights,
     )
     avg_ensemble_models["Weighted Average (R2)"] = {
-        "predict": create_weighted_predict(r2_weights, final_fold_growth_models, model_names),
-        "weights": dict(zip(model_names, r2_weights)),
+        "predict": create_weighted_predict(exp_r2_weights, final_fold_growth_models, model_names),
+        "weights": dict(zip(model_names, exp_r2_weights)),
         "component_weights": component_weights_for_reporting,  # Pass the populated dict
         "type": "weighted_average",
     }

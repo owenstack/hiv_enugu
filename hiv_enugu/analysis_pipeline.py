@@ -24,9 +24,10 @@ from hiv_enugu.plotting.evaluation import (
     create_validation_plot,
     forecast_future_trends,
     visualize_single_model_fit,
+    visualize_weighted_average_metrics_comparison, # Added import
 )
 from hiv_enugu.plotting.diagnostics import plot_residuals, plot_residuals_histogram, plot_qq
-from hiv_enugu.reporting import (  # New imports
+from hiv_enugu.reporting import (
     generate_coefficient_table,
     generate_standalone_metrics_table,
     generate_ensemble_input_tables,
@@ -272,8 +273,48 @@ def run_training_and_analysis(file_path_str: str) -> None:
     logger.info(f"Individual model fitting complete. Models: {list(fitted_models_global.keys())}")
 
     # --- New: Output for Standalone Growth Model Results (Request 2) ---
-    logger.info("\nStep 3.1: Generating reports for standalone growth models...")
+    logger.info("\nStep 3.1: Generating reports and diagnostics for standalone growth models...")
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)  # Ensure reports directory exists
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True) # Ensure figures directory exists
+
+    # --- Diagnostic plots for each standalone growth model ---
+    logger.info("Generating diagnostic plots for individual growth models...")
+    for model_name, model_details in fitted_models_global.items():
+        if model_details and "function" in model_details and "parameters" in model_details:
+            # Use full dataset (X, y) for these diagnostic plots for overall model assessment
+            # Alternatively, could use final_test_idx if focusing on test set performance.
+            # For overall model assumption checks, full data is often preferred.
+            y_pred_model_full = model_details["function"](X.ravel(), *model_details["parameters"])
+            residuals_model_full = y.ravel() - y_pred_model_full
+
+            plot_residuals(
+                y.ravel(), # y_true
+                y_pred_model_full, # y_pred
+                model_name,
+                filename_suffix=f"_full_data", # Added suffix for clarity
+                filename=f"residuals_{model_name}_full_data.png"
+            )
+            plot_residuals_histogram(
+                residuals_model_full, # Pass residuals directly
+                model_name,
+                filename_suffix=f"_full_data",
+                filename=f"residuals_histogram_{model_name}_full_data.png"
+            )
+            plot_qq(
+                residuals_model_full,
+                model_name,
+                filename_suffix=f"_full_data",
+                filename=f"qq_plot_{model_name}_full_data.png"
+            )
+            logger.info(f"Diagnostic plots for {model_name} (full data) generated in {FIGURES_DIR}.")
+            logger.info(f"  Please check these plots for {model_name} to assess assumptions like:")
+            logger.info(f"    - Residual Plot: Random scatter around zero (homoscedasticity, linearity).")
+            logger.info(f"    - Q-Q Plot: Points close to the diagonal line (normality of residuals).")
+            logger.info(f"    - Histogram of Residuals: Bell-shaped curve (normality of residuals).")
+        else:
+            logger.warning(f"Could not generate diagnostic plots for {model_name} due to missing details.")
+    logger.info("Diagnostic plots for individual growth models complete.")
+    # --- End of diagnostic plots section ---
 
     # 3.1.1. Model Coefficient Table
     coeff_table_df = generate_coefficient_table(fitted_models_global, model_metrics_global)
@@ -402,6 +443,16 @@ def run_training_and_analysis(file_path_str: str) -> None:
             print("\n--- Weighted Average Performance Comparison ---")
             print(wa_comparison_df.to_string())
 
+            # Visualize the weighted average comparison
+            if not wa_comparison_df.empty:
+                visualize_weighted_average_metrics_comparison(
+                    wa_comparison_df,
+                    filename="weighted_average_metrics_comparison.png"
+                )
+                logger.info(f"Weighted average metrics comparison chart saved to {FIGURES_DIR / 'weighted_average_metrics_comparison.png'}")
+            else:
+                logger.warning("Weighted average comparison DataFrame is empty, skipping chart generation.")
+
         # 5.1.5. Weighted Parameters Table
         if model_metrics_global and ensemble_models_dict:
             logger.info("Generating weighted parameters table...")
@@ -482,6 +533,44 @@ def run_training_and_analysis(file_path_str: str) -> None:
         generate_bootstrap_predictions,
     )
     logger.info("\n--- Analysis and training complete. ---")
+
+    # --- Interpretation and Summary Guidance ---
+    logger.info("\n--- Interpretation and Summary ---")
+    logger.info("All requested tables and charts have been generated and saved.")
+    logger.info(f"Reports (CSVs) are in: {REPORTS_DIR}")
+    logger.info(f"Figures (PNGs) are in: {FIGURES_DIR}")
+    logger.info("\nTo interpret the results, please consider the following:")
+    logger.info(
+        f"1. Best Overall Model: Refer to '{REPORTS_DIR / 'overall_evaluation_metrics.csv'}' "
+        f"and '{FIGURES_DIR / 'model_metrics_comparison.png'}'."
+    )
+    logger.info(
+        "   Look for models with low RMSE/MAE and high R²."
+    )
+    logger.info(
+        "2. Ensemble vs. Individual Models: Compare metrics of 'Ensemble' type models "
+        "against 'Individual' type models in the same files mentioned above."
+    )
+    logger.info(
+        f"3. Ensemble Technique Stability: Analyze metrics in '{REPORTS_DIR / 'overall_evaluation_metrics.csv'}'. "
+        "Lower variance in performance across different datasets (if applicable through CV results not directly shown here) "
+        "or consistent high performance suggests stability. Also, review residual plots for ensemble models "
+        f"(e.g., '{FIGURES_DIR / 'residuals_plot_Random_Forest.png'}') for patterns."
+    )
+    logger.info(
+        f"4. Prediction Accuracy Over Time: Examine plots like '{FIGURES_DIR / 'best_model_vs_ensemble.png'}' (validation plot), "
+        f"individual model fit plots (e.g., '{FIGURES_DIR / 'observed_vs_predicted_Logistic.png'}'), "
+        f"and '{FIGURES_DIR / 'ensemble_comparison.png'}'. Look for divergence between predicted and actual values over time."
+    )
+    logger.info(
+        f"5. Growth Model Assumptions: Check the diagnostic plots for individual growth models "
+        f"(e.g., '{FIGURES_DIR / 'residuals_Logistic_full_data.png'}', "
+        f"'{FIGURES_DIR / 'qq_plot_Logistic_full_data.png'}') to assess if model assumptions are met."
+    )
+    logger.info(
+        "This automated pipeline provides the data and visualizations; detailed narrative interpretation requires domain expertise."
+    )
+    logger.info("--- End of Interpretation and Summary Guidance ---")
 
 
 def _perform_post_modeling_visualizations(

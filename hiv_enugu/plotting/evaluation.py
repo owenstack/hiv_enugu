@@ -674,7 +674,7 @@ def visualize_weighted_average_metrics_comparison(
     """
     if weighted_avg_comparison_df.empty:
         fig = plt.figure()
-        plt.text(0.5, 0.5, "No data for weighted average comparison.", ha='center', va='center')
+        plt.text(0.5, 0.5, "No data for weighted average comparison.", ha="center", va="center")
         return fig
 
     df_melted = weighted_avg_comparison_df.melt(
@@ -685,14 +685,25 @@ def visualize_weighted_average_metrics_comparison(
     )
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-    fig.suptitle("Weighted Average Ensemble: R² vs. Inverse MSE Weighting Performance", fontsize=16)
+    fig.suptitle(
+        "Weighted Average Ensemble: R² vs. Inverse MSE Weighting Performance", fontsize=16
+    )
 
     metrics_to_plot = ["RMSE", "R²", "MAE"]
     for i, metric in enumerate(metrics_to_plot):
         ax = axes[i]
         metric_data = df_melted[df_melted["Metric"] == metric]
         if not metric_data.empty:
-            sns.barplot(x="Weighting_Method", y="Score", data=metric_data, ax=ax, palette="pastel", hue="Weighting_Method", dodge=False, legend=False)
+            sns.barplot(
+                x="Weighting_Method",
+                y="Score",
+                data=metric_data,
+                ax=ax,
+                palette="pastel",
+                hue="Weighting_Method",
+                dodge=False,
+                legend=False,
+            )
             ax.set_title(f"{metric} Comparison", fontsize=14)
             ax.set_xlabel("Weighting Method", fontsize=12)
             ax.set_ylabel(metric, fontsize=12)
@@ -700,8 +711,7 @@ def visualize_weighted_average_metrics_comparison(
             for container in ax.containers:
                 ax.bar_label(container, fmt="%.3f")
         else:
-            ax.text(0.5, 0.5, f"No data for {metric}", ha='center', va='center')
+            ax.text(0.5, 0.5, f"No data for {metric}", ha="center", va="center")
 
-
-    plt.tight_layout(rect=[0, 0, 1, 0.96])  # Adjust layout to make space for suptitle
+    plt.tight_layout(rect=(0, 0, 1, 0.96))  # Adjust layout to make space for suptitle
     return fig

@@ -24,7 +24,7 @@ from hiv_enugu.plotting.evaluation import (
     create_validation_plot,
     forecast_future_trends,
     visualize_single_model_fit,
-    visualize_weighted_average_metrics_comparison, # Added import
+    visualize_weighted_average_metrics_comparison,  # Added import
 )
 from hiv_enugu.plotting.diagnostics import plot_residuals, plot_residuals_histogram, plot_qq
 from hiv_enugu.reporting import (
@@ -275,7 +275,7 @@ def run_training_and_analysis(file_path_str: str) -> None:
     # --- New: Output for Standalone Growth Model Results (Request 2) ---
     logger.info("\nStep 3.1: Generating reports and diagnostics for standalone growth models...")
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)  # Ensure reports directory exists
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True) # Ensure figures directory exists
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)  # Ensure figures directory exists
 
     # --- Diagnostic plots for each standalone growth model ---
     logger.info("Generating diagnostic plots for individual growth models...")
@@ -288,31 +288,41 @@ def run_training_and_analysis(file_path_str: str) -> None:
             residuals_model_full = y.ravel() - y_pred_model_full
 
             plot_residuals(
-                y.ravel(), # y_true
-                y_pred_model_full, # y_pred
+                y.ravel(),  # y_true
+                y_pred_model_full,  # y_pred
                 model_name,
-                filename_suffix=f"_full_data", # Added suffix for clarity
-                filename=f"residuals_{model_name}_full_data.png"
+                filename_suffix=f"_full_data",  # Added suffix for clarity
+                filename=f"residuals_{model_name}_full_data.png",
             )
             plot_residuals_histogram(
-                residuals_model_full, # Pass residuals directly
+                residuals_model_full,  # Pass residuals directly
                 model_name,
                 filename_suffix=f"_full_data",
-                filename=f"residuals_histogram_{model_name}_full_data.png"
+                filename=f"residuals_histogram_{model_name}_full_data.png",
             )
             plot_qq(
                 residuals_model_full,
                 model_name,
                 filename_suffix=f"_full_data",
-                filename=f"qq_plot_{model_name}_full_data.png"
+                filename=f"qq_plot_{model_name}_full_data.png",
             )
-            logger.info(f"Diagnostic plots for {model_name} (full data) generated in {FIGURES_DIR}.")
+            logger.info(
+                f"Diagnostic plots for {model_name} (full data) generated in {FIGURES_DIR}."
+            )
             logger.info(f"  Please check these plots for {model_name} to assess assumptions like:")
-            logger.info(f"    - Residual Plot: Random scatter around zero (homoscedasticity, linearity).")
-            logger.info(f"    - Q-Q Plot: Points close to the diagonal line (normality of residuals).")
-            logger.info(f"    - Histogram of Residuals: Bell-shaped curve (normality of residuals).")
+            logger.info(
+                f"    - Residual Plot: Random scatter around zero (homoscedasticity, linearity)."
+            )
+            logger.info(
+                f"    - Q-Q Plot: Points close to the diagonal line (normality of residuals)."
+            )
+            logger.info(
+                f"    - Histogram of Residuals: Bell-shaped curve (normality of residuals)."
+            )
         else:
-            logger.warning(f"Could not generate diagnostic plots for {model_name} due to missing details.")
+            logger.warning(
+                f"Could not generate diagnostic plots for {model_name} due to missing details."
+            )
     logger.info("Diagnostic plots for individual growth models complete.")
     # --- End of diagnostic plots section ---
 
@@ -446,12 +456,15 @@ def run_training_and_analysis(file_path_str: str) -> None:
             # Visualize the weighted average comparison
             if not wa_comparison_df.empty:
                 visualize_weighted_average_metrics_comparison(
-                    wa_comparison_df,
-                    filename="weighted_average_metrics_comparison.png"
+                    wa_comparison_df, filename="weighted_average_metrics_comparison.png"
                 )
-                logger.info(f"Weighted average metrics comparison chart saved to {FIGURES_DIR / 'weighted_average_metrics_comparison.png'}")
+                logger.info(
+                    f"Weighted average metrics comparison chart saved to {FIGURES_DIR / 'weighted_average_metrics_comparison.png'}"
+                )
             else:
-                logger.warning("Weighted average comparison DataFrame is empty, skipping chart generation.")
+                logger.warning(
+                    "Weighted average comparison DataFrame is empty, skipping chart generation."
+                )
 
         # 5.1.5. Weighted Parameters Table
         if model_metrics_global and ensemble_models_dict:
@@ -544,9 +557,7 @@ def run_training_and_analysis(file_path_str: str) -> None:
         f"1. Best Overall Model: Refer to '{REPORTS_DIR / 'overall_evaluation_metrics.csv'}' "
         f"and '{FIGURES_DIR / 'model_metrics_comparison.png'}'."
     )
-    logger.info(
-        "   Look for models with low RMSE/MAE and high R²."
-    )
+    logger.info("   Look for models with low RMSE/MAE and high R².")
     logger.info(
         "2. Ensemble vs. Individual Models: Compare metrics of 'Ensemble' type models "
         "against 'Individual' type models in the same files mentioned above."

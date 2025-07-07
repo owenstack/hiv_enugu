@@ -18,7 +18,9 @@ def logistic_model(x, L, k, t0, c_offset):
     return L / (1 + np.exp(-k * (x - t0))) + c_offset
 
 
-def richards_model(x, a, b, c, d, k_param): # Renamed k to k_param to avoid clash if we standardize it later
+def richards_model(
+    x, a, b, c, d, k_param
+):  # Renamed k to k_param to avoid clash if we standardize it later
     """Richards growth model: y = a / (1 + np.exp(-b * (x - c)))**(1/d) + k_param"""
     # Note: Parameters here are not yet standardized like logistic/gompertz
     return a / (1 + np.exp(-b * (x - c))) ** (1 / d) + k_param

@@ -84,11 +84,12 @@ def fit_growth_models(X, y, cv_splits):
 
     fitted_models = {}
     model_metrics = {}
+    cv_fitted_models = {name: [] for name in models.keys()}  # Store models for each CV fold
 
     # Handle cases with empty X or y
     if len(X) == 0 or len(y) == 0:
         print("Error: X or y is empty. Cannot fit models.")
-        return fitted_models, model_metrics
+        return fitted_models, model_metrics, cv_fitted_models
     if np.max(y) <= 0:  # Handles cases where y might be all zeros or negative
         print("Warning: Max value of y is not positive. Model fitting might be problematic.")
         # Adjust bounds to be non-zero if they depend on max(y) being positive.
@@ -209,6 +210,7 @@ def fit_growth_models(X, y, cv_splits):
                     print(
                         f"  Warning: Not enough data points in split {i + 1} for {name} (Train: {len(X_train)}). Skipping split."
                     )
+                    cv_fitted_models[name].append(None)  # Append None to keep fold indices in sync
                     continue
 
                 best_split_popt = None
@@ -256,6 +258,10 @@ def fit_growth_models(X, y, cv_splits):
                         f"  Warning: Failed to converge on split {i + 1} for {name} after all attempts. Using initial_params_for_cv as fallback for this split's metrics."
                     )
                     best_split_popt = initial_params_for_cv
+
+                cv_fitted_models[name].append(
+                    {"function": model_func, "parameters": best_split_popt}
+                )
 
                 y_train_pred = model_func(X_train, *best_split_popt)
                 y_test_pred = model_func(X_test, *best_split_popt)
@@ -337,27 +343,27 @@ def fit_growth_models(X, y, cv_splits):
 
             print(f"{name} Model Cross-Validation Metrics:")
             print(
-                f"  Avg Train RMSE: {np.mean(cv_train_rmse):.2f} ± {np.std(cv_train_rmse):.2f}"
+                f"  Avg Train RMSE: {np.mean(cv_train_rmse):.2f} \u00b1 {np.std(cv_train_rmse):.2f}"
                 if cv_train_rmse
                 else "  Avg Train RMSE: N/A"
             )
             print(
-                f"  Avg Test RMSE: {np.mean(cv_test_rmse):.2f} ± {np.std(cv_test_rmse):.2f}"
+                f"  Avg Test RMSE: {np.mean(cv_test_rmse):.2f} \u00b1 {np.std(cv_test_rmse):.2f}"
                 if cv_test_rmse
                 else "  Avg Test RMSE: N/A"
             )
             print(
-                f"  Avg Train R²: {np.mean(cv_train_r2):.4f} ± {np.std(cv_train_r2):.4f}"
+                f"  Avg Train R\u00b2: {np.mean(cv_train_r2):.4f} \u00b1 {np.std(cv_train_r2):.4f}"
                 if cv_train_r2
-                else "  Avg Train R²: N/A"
+                else "  Avg Train R\u00b2: N/A"
             )
             print(
-                f"  Avg Test R²: {np.mean(cv_test_r2_scores):.4f} ± {np.std(cv_test_r2_scores):.4f}"
+                f"  Avg Test R\u00b2: {np.mean(cv_test_r2_scores):.4f} \u00b1 {np.std(cv_test_r2_scores):.4f}"
                 if cv_test_r2_scores
-                else "  Avg Test R²: N/A"
+                else "  Avg Test R\u00b2: N/A"
             )
             print(
-                f"  Avg Test MAE: {np.mean(cv_test_mae):.2f} ± {np.std(cv_test_mae):.2f}"
+                f"  Avg Test MAE: {np.mean(cv_test_mae):.2f} \u00b1 {np.std(cv_test_mae):.2f}"
                 if cv_test_mae
                 else "  Avg Test MAE: N/A"
             )
@@ -368,4 +374,4 @@ def fit_growth_models(X, y, cv_splits):
 
             traceback.print_exc()
 
-    return fitted_models, model_metrics
+    return fitted_models, model_metrics, cv_fitted_models

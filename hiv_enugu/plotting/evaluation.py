@@ -1,14 +1,16 @@
-import matplotlib.pyplot as plt
+import os  # For forecast_future_trends saving CSV
+
 import matplotlib.dates as mdates
 from matplotlib.gridspec import GridSpec
-import seaborn as sns
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from hiv_enugu.utils import generate_bootstrap_predictions
-from .utils import plot_manager
+import seaborn as sns
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
 from hiv_enugu.config import PROCESSED_DATA_DIR
-import os  # For forecast_future_trends saving CSV
+
+from .utils import plot_manager
 
 # Set styling for plots (as in user's visualization.py)
 plt.style.use("seaborn-v0_8-whitegrid")
@@ -121,8 +123,16 @@ def visualize_ensemble_comparison(
         "magenta",
         "cyan",
         "lime",
+        "pink",  # Added more colors for potentially more models
+        "gray",
+        "olive",
+        "navy",
     ]  # Cycle through these for ensembles
-    ensemble_models_to_plot = [
+
+    # Dynamically plot all models from ensemble_models_dict
+    # Sort to maintain a somewhat consistent plotting order if desired, e.g., alphabetically
+    # Or define a preferred order if that's important. For now, iterating directly.
+    plot_order = [
         "Simple Average",
         "Weighted Average (R2)",
         "Weighted Average (InvMSE)",
@@ -130,9 +140,24 @@ def visualize_ensemble_comparison(
         "Gradient Boosting",
     ]
 
-    for i, name in enumerate(ensemble_models_to_plot):
+    # Plot models in defined order first, then any others
+    models_plotted_count = 0
+    for name in plot_order:
         if name in ensemble_models_dict:
             model_info = ensemble_models_dict[name]
+            y_pred_ensemble = model_info["predict"](X)
+            plt.plot(
+                df["date"],
+                y_pred_ensemble,
+                color=colors[models_plotted_count % len(colors)],
+                linewidth=2,
+                label=f"{name} Ensemble",
+            )
+            models_plotted_count += 1
+
+    # Plot any remaining models not in plot_order
+    for i, (name, model_info) in enumerate(ensemble_models_dict.items()):
+        if name not in plot_order:  # Check if already plotted
             # The 'predict' function in ensemble_models_dict expects X (time_idx)
             y_pred_ensemble = model_info["predict"](X)
             plt.plot(
@@ -462,11 +487,11 @@ def forecast_future_trends(
 ):
     """Forecast future HIV trends with enhanced uncertainty quantification."""
     # Determine future date range and time indices
-    last_date = df["date"].max()
+    # last_date = df["date"].max() # This variable was unused
     # Ensure future_dates are daily for smoother plotting if needed, then resample/select for specific points if required
-    future_dates_daily = pd.date_range(
-        start=last_date + pd.Timedelta(days=1), periods=5 * 365, freq="D"
-    )
+    # future_dates_daily = pd.date_range( # This variable was unused
+    #     start=last_date + pd.Timedelta(days=1), periods=5 * 365, freq="D" # original line used last_date
+    # )
 
     # time_idx for future dates
     # The X passed is the original time_idx for training. Use its min/max for consistency.

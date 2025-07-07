@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
-import seaborn as sns
 import scipy.stats as stats  # Added for plot_qq
+import seaborn as sns
+
 from .utils import plot_manager  # Assuming utils.py is in the same directory (plotting)
 
 # Global style settings (optional, can be set in main script or per plot)

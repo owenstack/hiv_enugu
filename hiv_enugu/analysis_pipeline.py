@@ -1,52 +1,45 @@
-import pandas as pd
-import numpy as np
-import warnings
 import os
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Tuple
+import warnings
+
 import joblib
 from loguru import logger
-from typing import List, Dict, Tuple, Optional, Any, Callable
-from pathlib import Path
+import numpy as np
+import pandas as pd
+
+from hiv_enugu.config import FIGURES_DIR, MODELS_DIR, PROCESSED_DATA_DIR, REPORTS_DIR
 
 # Custom module imports
 from hiv_enugu.data_processing import load_data
 from hiv_enugu.modeling.data_prep import prepare_data_for_modeling
-from hiv_enugu.modeling.fit import fit_growth_models
 from hiv_enugu.modeling.ensemble import build_ensemble_models_with_cv
-from hiv_enugu.utils import (
-    generate_bootstrap_predictions,
-)  # generate_bootstrap_predictions type: Callable
 from hiv_enugu.modeling.features import create_ml_features
-
-from hiv_enugu.plotting.evaluation import (
-    visualize_individual_models,
-    visualize_ensemble_comparison,
-    visualize_metrics_comparison,
+from hiv_enugu.modeling.fit import fit_growth_models
+from hiv_enugu.plotting.diagnostics import plot_qq, plot_residuals, plot_residuals_histogram
+from hiv_enugu.plotting.evaluation import (  # Ensure plot_feature_importances is imported
     create_validation_plot,
     forecast_future_trends,
+    plot_feature_importances,  # New
+    visualize_ensemble_comparison,
+    visualize_individual_models,
+    visualize_metrics_comparison,
     visualize_single_model_fit,
     visualize_weighted_average_metrics_comparison,  # Added import
 )
-from hiv_enugu.plotting.diagnostics import plot_residuals, plot_residuals_histogram, plot_qq
 from hiv_enugu.reporting import (
     generate_coefficient_table,
-    generate_standalone_metrics_table,
     generate_ensemble_input_tables,
+    generate_feature_importance_table,  # New
     generate_full_predictions_table,
     generate_predictions_summary_table,
+    generate_standalone_metrics_table,
     generate_weighted_average_comparison_table,
     generate_weighted_parameters_table,
-    generate_feature_importance_table,  # New
 )
-from hiv_enugu.plotting.evaluation import (  # Ensure plot_feature_importances is imported
-    visualize_individual_models,
-    visualize_ensemble_comparison,
-    visualize_metrics_comparison,
-    create_validation_plot,
-    forecast_future_trends,
-    visualize_single_model_fit,
-    plot_feature_importances,  # New
-)
-from hiv_enugu.config import PROCESSED_DATA_DIR, FIGURES_DIR, MODELS_DIR, REPORTS_DIR
+from hiv_enugu.utils import (
+    generate_bootstrap_predictions,
+)  # generate_bootstrap_predictions type: Callable
 
 warnings.filterwarnings("ignore")
 
@@ -293,19 +286,19 @@ def run_training_and_analysis(file_path_str: str) -> None:
                 y.ravel(),  # y_true
                 y_pred_model_full,  # y_pred
                 model_name,
-                filename_suffix=f"_full_data",  # Added suffix for clarity
+                filename_suffix="_full_data",  # Added suffix for clarity
                 filename=f"residuals_{model_name}_full_data.png",
             )
             plot_residuals_histogram(
                 residuals_model_full,  # Pass residuals directly
                 model_name,
-                filename_suffix=f"_full_data",
+                filename_suffix="_full_data",
                 filename=f"residuals_histogram_{model_name}_full_data.png",
             )
             plot_qq(
                 residuals_model_full,
                 model_name,
-                filename_suffix=f"_full_data",
+                filename_suffix="_full_data",
                 filename=f"qq_plot_{model_name}_full_data.png",
             )
             logger.info(
@@ -313,13 +306,13 @@ def run_training_and_analysis(file_path_str: str) -> None:
             )
             logger.info(f"  Please check these plots for {model_name} to assess assumptions like:")
             logger.info(
-                f"    - Residual Plot: Random scatter around zero (homoscedasticity, linearity)."
+                "    - Residual Plot: Random scatter around zero (homoscedasticity, linearity)."
             )
             logger.info(
-                f"    - Q-Q Plot: Points close to the diagonal line (normality of residuals)."
+                "    - Q-Q Plot: Points close to the diagonal line (normality of residuals)."
             )
             logger.info(
-                f"    - Histogram of Residuals: Bell-shaped curve (normality of residuals)."
+                "    - Histogram of Residuals: Bell-shaped curve (normality of residuals)."
             )
         else:
             logger.warning(
@@ -379,7 +372,7 @@ def run_training_and_analysis(file_path_str: str) -> None:
 
     # 5. Build ensemble models
     logger.info("\nStep 5: Building ensemble models...")
-    # This function is expected to save 'feature_scaler.pkl' and potentially ML models like 'rf_model.pkl'.
+    # Pass final fitted growth models and their metrics for building average-based ensembles
     ensemble_models_dict, ensemble_metrics_dict = build_ensemble_models_with_cv(
         X, y, cv_fitted_models, cv_splits
     )
@@ -671,96 +664,64 @@ def _perform_post_modeling_visualizations(
     else:
         logger.warning("Skipping validation plot: missing best model objects or names.")
 
-    # 10. Diagnostic Plots for Best Ensemble Model
-    logger.info("\nStep 10: Generating diagnostic plots for best ensemble model...")
-    if best_ens_model_obj and best_ensemble_name:
-        X_diag, y_diag = (
-            (X[final_test_idx], y[final_test_idx])
-            if final_test_idx.size > 0 and y[final_test_idx].size > 0
-            else (X, y)
-        )
-        if X_diag.size > 0 and y_diag.size > 0:
-            y_pred_ensemble = best_ens_model_obj["predict"](X_diag)
-            plot_residuals(
-                y_diag,
-                y_pred_ensemble,
-                str(best_ensemble_name),
-                filename=f"residuals_plot_{str(best_ensemble_name)}.png",
-            )
-            plot_residuals_histogram(
-                y_diag,
-                y_pred_ensemble,
-                str(best_ensemble_name),
-                filename=f"residuals_histogram_{str(best_ensemble_name)}.png",
-            )
-            residuals_ensemble = y_diag - y_pred_ensemble
-            plot_qq(
-                residuals_ensemble,
-                str(best_ensemble_name),
-                filename=f"qq_plot_{str(best_ensemble_name)}.png",
-            )
-            logger.info(
-                f"Diagnostic plots for best ensemble model ({best_ensemble_name}) complete."
-            )
-        else:
-            logger.warning(
-                "Skipping diagnostic plots for best ensemble: No diagnostic data (X_diag/y_diag empty)."
-            )
-    else:
-        logger.info(
-            "Skipping diagnostic plots for best ensemble: Best ensemble model/name not available."
-        )
-
-    # Specific Residual Plots for RF and GB
-    logger.info(
-        "\nStep 10.1: Generating diagnostic plots for Random Forest and Gradient Boosting ensembles..."
-    )
-    X_diag_rf_gb, y_diag_rf_gb = (
+    # 10. Diagnostic Plots for All Ensemble Models
+    logger.info("\nStep 10: Generating diagnostic plots for all ensemble models...")
+    X_diag_ensemble, y_diag_ensemble = (
         (X[final_test_idx], y[final_test_idx])
         if final_test_idx.size > 0 and y[final_test_idx].size > 0
-        else (X, y)
+        else (X, y)  # Use full data if test set is empty
     )
-    if X_diag_rf_gb.size > 0 and y_diag_rf_gb.size > 0:
-        for ens_model_name in ["Random Forest", "Gradient Boosting"]:
-            if ens_model_name in ensemble_models_dict:
-                current_ens_model_obj = ensemble_models_dict[ens_model_name]
-                if current_ens_model_obj and "predict" in current_ens_model_obj:
-                    try:
-                        y_pred_current_ens = current_ens_model_obj["predict"](X_diag_rf_gb)
-                        residuals_current_ens = y_diag_rf_gb - y_pred_current_ens
 
-                        plot_residuals(
-                            y_diag_rf_gb,
-                            y_pred_current_ens,
-                            ens_model_name,
-                            filename=f"residuals_plot_{ens_model_name.replace(' ', '_')}.png",
-                        )
-                        plot_residuals_histogram(
-                            residuals_current_ens,
-                            ens_model_name,
-                            filename=f"residuals_histogram_{ens_model_name.replace(' ', '_')}.png",
-                        )
-                        plot_qq(
-                            residuals_current_ens,
-                            ens_model_name,
-                            filename=f"qq_plot_{ens_model_name.replace(' ', '_')}.png",
-                        )
-                        logger.info(f"Diagnostic plots for {ens_model_name} complete.")
-                    except Exception as e:
-                        logger.error(
-                            f"Could not generate diagnostic plots for {ens_model_name}: {e}"
-                        )
-                else:
-                    logger.warning(
-                        f"Predict function not found for {ens_model_name}, skipping its diagnostic plots."
+    if X_diag_ensemble.size > 0 and y_diag_ensemble.size > 0 and ensemble_models_dict:
+        for ens_model_name, ens_model_obj in ensemble_models_dict.items():
+            if ens_model_obj and "predict" in ens_model_obj:
+                try:
+                    logger.info(f"Generating diagnostic plots for ensemble: {ens_model_name}...")
+                    y_pred_ens = ens_model_obj["predict"](X_diag_ensemble)
+                    residuals_ens = y_diag_ensemble - y_pred_ens
+
+                    # Sanitize filename
+                    safe_model_name = (
+                        ens_model_name.replace(" ", "_")
+                        .replace("(", "")
+                        .replace(")", "")
+                        .replace("/", "")
+                    )
+
+                    plot_residuals(
+                        y_diag_ensemble,
+                        y_pred_ens,
+                        ens_model_name,
+                        filename=f"residuals_plot_{safe_model_name}.png",
+                    )
+                    plot_residuals_histogram(
+                        residuals_ens,  # Pass residuals directly
+                        ens_model_name,
+                        filename=f"residuals_histogram_{safe_model_name}.png",
+                    )
+                    plot_qq(
+                        residuals_ens,
+                        ens_model_name,
+                        filename=f"qq_plot_{safe_model_name}.png",
+                    )
+                    logger.info(f"Diagnostic plots for {ens_model_name} complete.")
+
+                    # Feature importance plots are handled in Step 5.1.6 of run_training_and_analysis
+                    # as they are tied to specific model types (RF, GB) and use their specific attributes.
+                    # No need to replicate that logic here.
+
+                except Exception as e:
+                    logger.error(
+                        f"Could not generate diagnostic plots for {ens_model_name}: {e}",
+                        exc_info=True,
                     )
             else:
-                logger.info(
-                    f"{ens_model_name} not found in ensemble_models_dict, skipping its diagnostic plots."
+                logger.warning(
+                    f"Predict function or model object not found for {ens_model_name}, skipping its diagnostic plots."
                 )
     else:
         logger.warning(
-            "Skipping RF/GB diagnostic plots: No diagnostic data (X_diag_rf_gb/y_diag_rf_gb empty)."
+            "Skipping ensemble diagnostic plots: No diagnostic data or no ensemble models available."
         )
 
     # 11. Forecast future trends

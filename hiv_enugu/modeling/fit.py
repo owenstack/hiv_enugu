@@ -1,8 +1,10 @@
 import numpy as np
 from scipy.optimize import curve_fit
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
-from .growth_models import exponential_model, logistic_model, richards_model, gompertz_model
-from hiv_enugu.plotting.diagnostics import plot_residuals, plot_qq, plot_residuals_histogram
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+from hiv_enugu.plotting.diagnostics import plot_qq, plot_residuals, plot_residuals_histogram
+
+from .growth_models import exponential_model, gompertz_model, logistic_model, richards_model
 
 
 def fit_growth_models(X, y, cv_splits):
@@ -249,7 +251,7 @@ def fit_growth_models(X, y, cv_splits):
                     except RuntimeError:
                         # print(f"    Attempt {attempt+1} for split {i+1} failed to converge.")
                         continue
-                    except ValueError as ve_split:
+                    except ValueError:
                         # print(f"    ValueError in attempt {attempt+1} for split {i+1}: {ve_split}")
                         continue  # problem with bounds or p0
 

@@ -8,51 +8,30 @@ def generate_coefficient_table(
     fitted_models: Dict[str, Any], model_metrics: Dict[str, Dict[str, Any]]
 ) -> pd.DataFrame:
     """
-    Generates a table of estimated parameters for each standalone growth model.
-
-    Args:
-        fitted_models: Dictionary of fitted models from fit_growth_models.
-                       Example: {'Logistic': {'function': ..., 'parameters': [...]}}
-        model_metrics: Dictionary of model metrics, which also stores parameters.
-                       Example: {'Logistic': {'parameters': [...], ...}}
-
-    Returns:
-        A pandas DataFrame with model names and their parameters.
+    Generates a table of estimated parameters for each standalone growth model in a long format.
     """
     data = []
     param_names_map = {
         "Exponential": ["a", "b", "c"],
-        "Logistic": ["L", "k", "t0", "c"],
-        "Richards": ["L", "k", "t0", "nu", "c"],
-        "Gompertz": ["L", "beta", "k", "c"],
+        "Logistic": ["L", "k", "t0", "c_offset"],
+        "Richards": ["L", "k", "t0", "nu", "c_offset"],
+        # Note: Gompertz in fit.py is (L, beta, k, c)
+        "Gompertz": ["L", "beta", "k", "c_offset"],
     }
 
-    for name in (
-        model_metrics.keys()
-    ):  # Iterate based on model_metrics which should have all models attempted
-        params = model_metrics[name].get("parameters")
-
+    for name, metrics in model_metrics.items():
+        params = metrics.get("parameters")
         if params is not None:
-            # Ensure param_names matches the number of parameters
-            # If model not in param_names_map or length mismatch, use generic names
-            current_param_names = param_names_map.get(name, [])
-            if len(current_param_names) != len(params):
-                actual_param_names = [f"param_{i + 1}" for i in range(len(params))]
-            else:
-                actual_param_names = current_param_names
+            param_names = param_names_map.get(name, [f"param_{i + 1}" for i in range(len(params))])
+            if len(param_names) != len(params):  # Fallback for safety
+                param_names = [f"param_{i + 1}" for i in range(len(params))]
 
-            row = {"Model": name}
-            for i, p_val in enumerate(params):
-                param_name = actual_param_names[i]
-                row[param_name] = p_val
-            data.append(row)
+            for param_name, param_val in zip(param_names, params):
+                data.append({"Model": name, "Parameter": param_name, "Value": param_val})
         else:
-            # If params are None (e.g., model failed to fit), still add a row indicating this
-            data.append({"Model": name, "Parameters": "Fit Failed or N/A"})
+            data.append({"Model": name, "Parameter": "Fit Failed", "Value": None})
 
     df = pd.DataFrame(data)
-    # Reorder columns to have Model first, then common params if desired, then others
-    # For now, simple ordering is fine.
     return df
 
 
@@ -333,6 +312,7 @@ def generate_weighted_average_comparison_table(
     Generates a table comparing performance of R2 vs InvMSE weighted averages.
     """
     data = []
+    # **FIX**: Use the correct metric keys ('test_rmse', 'test_r2', 'test_mae')
     wa_r2_metrics = ensemble_metrics.get("Weighted Average (R2)")
     wa_invmse_metrics = ensemble_metrics.get("Weighted Average (InvMSE)")
 
@@ -340,18 +320,18 @@ def generate_weighted_average_comparison_table(
         data.append(
             {
                 "Weighting_Method": "R²",
-                "RMSE": wa_r2_metrics.get("rmse"),
-                "R²": wa_r2_metrics.get("r2"),
-                "MAE": wa_r2_metrics.get("mae"),
+                "RMSE": wa_r2_metrics.get("test_rmse"),
+                "R²": wa_r2_metrics.get("test_r2"),
+                "MAE": wa_r2_metrics.get("test_mae"),
             }
         )
     if wa_invmse_metrics:
         data.append(
             {
                 "Weighting_Method": "Inverse MSE",
-                "RMSE": wa_invmse_metrics.get("rmse"),
-                "R²": wa_invmse_metrics.get("r2"),
-                "MAE": wa_invmse_metrics.get("mae"),
+                "RMSE": wa_invmse_metrics.get("test_rmse"),
+                "R²": wa_invmse_metrics.get("test_r2"),
+                "MAE": wa_invmse_metrics.get("test_mae"),
             }
         )
 

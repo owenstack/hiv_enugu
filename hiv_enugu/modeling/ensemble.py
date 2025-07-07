@@ -13,46 +13,48 @@ from hiv_enugu.modeling.features import create_ml_features
 
 
 # Renamed from build_ensemble_models
-def build_average_ensembles(X, y, fitted_growth_models, cv_splits):
+def build_average_ensembles(X, y, cv_fitted_growth_models, cv_splits):
     """
-    Builds Simple Average and Weighted Average ensemble models.
-    Uses final fitted growth models and their metrics.
+    Builds Simple Average and Weighted Average ensemble models using final fitted growth models.
     """
     avg_ensemble_models = {}
     avg_ensemble_metrics = {}
-    component_weights_for_reporting = {}
 
-    if not fitted_growth_models:
+    # Use the final models (fitted on full data, which are the last ones produced by fit_growth_models)
+    # The cv_fitted_growth_models has one model per fold. We need the final one.
+    # The structure passed from fit.py is a dict of lists. Let's get the final models from the main pipeline's fitted_models_global
+    # A cleaner way is to just refit here or pass them correctly. Let's assume cv_fitted_growth_models contains fold-specific models.
+    # We will use the models from the *last* CV split as a proxy for the final models for calculating weights.
+
+    final_fold_growth_models = {
+        name: models[-1]
+        for name, models in cv_fitted_growth_models.items()
+        if models and models[-1] is not None
+    }
+
+    if not final_fold_growth_models:
         print("No fitted growth models provided for average ensembles. Skipping.")
         return avg_ensemble_models, avg_ensemble_metrics
 
-    # Base features from individual models (predictions on the full X)
-    # Extract the first model from each list (since fitted_growth_models contains lists)
-    final_fitted_models = {
-        name: models[0] for name, models in fitted_growth_models.items() if models
-    }
     base_features_dict = {
         name: model["function"](X, *model["parameters"])
-        for name, model in final_fitted_models.items()
+        for name, model in final_fold_growth_models.items()
     }
     base_features_array = np.column_stack(list(base_features_dict.values()))
-    model_names_in_order = list(final_fitted_models.keys())
 
-    # Simple Average Ensemble
-    simple_avg_pred = np.mean(base_features_array, axis=1)
-
-    # Create a closure for simple average prediction
+    # --- Simple Average Ensemble ---
     def create_simple_predict(models):
         def simple_predict(x_new):
             predictions = np.column_stack(
-                [m["function"](x_new, *m["parameters"]) for m in models.values()]
+                [m["function"](x_new.ravel(), *m["parameters"]) for m in models.values()]
             )
             return np.mean(predictions, axis=1)
 
         return simple_predict
 
+    simple_avg_pred = np.mean(base_features_array, axis=1)
     avg_ensemble_models["Simple Average"] = {
-        "predict": create_simple_predict(final_fitted_models),
+        "predict": create_simple_predict(final_fold_growth_models),
         "type": "simple_average",
     }
     avg_ensemble_metrics["Simple Average"] = {
@@ -62,76 +64,91 @@ def build_average_ensembles(X, y, fitted_growth_models, cv_splits):
     }
 
     # --- Weighted Average Ensembles ---
-    # Weights from R2 scores
-    cv_test_r2_wa, cv_test_mae_wa = [], []
-    final_weights = None
-    final_weighted_pred = None
-    final_y_test = None
-    final_model_names_with_positive_r2 = []  # Track which models have positive R2
+    # Calculate weights based on the performance on the last CV test set
+    _, test_index = cv_splits[-1]
+    X_test, y_test = X[test_index], y[test_index]
 
-    for train_index, test_index in cv_splits:
-        X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test = y[train_index], y[test_index]
+    model_names, r2_weights, inv_mse_weights = [], [], []
+    component_weights_for_reporting = {}
 
-        # Get predictions and calculate weights based on training performance
-        fold_predictions = []
-        fold_weights = []
-        fold_model_names = []  # Track model names for this fold
-        
-        for name in final_fitted_models:
-            fold_model = final_fitted_models[name]  # Use the extracted final model
-            if fold_model:
-                train_pred = fold_model["function"](X_train, *fold_model["parameters"])
-                test_pred = fold_model["function"](X_test, *fold_model["parameters"])
-                r2 = r2_score(y_train, train_pred)
-                if r2 > 0:  # Only include models with positive R2
-                    fold_predictions.append(test_pred)
-                    fold_weights.append(r2)
-                    fold_model_names.append(name)
+    for name, model in final_fold_growth_models.items():
+        test_pred = model["function"](X_test, *model["parameters"])
+        r2 = r2_score(y_test, test_pred)
+        mse = mean_squared_error(y_test, test_pred)
 
-        if fold_predictions and fold_weights:
-            weights = np.array(fold_weights)
-            weights = weights / weights.sum()  # Normalize weights
-            weighted_pred = np.average(np.column_stack(fold_predictions), axis=1, weights=weights)
+        # Only use models with positive R-squared for weighting
+        if r2 > 0:
+            model_names.append(name)
+            r2_weights.append(r2)
+            inv_mse_weights.append(1 / (mse + 1e-9))  # Add epsilon for stability
 
-            cv_test_r2_wa.append(r2_score(y_test, weighted_pred))
-            cv_test_mae_wa.append(mean_absolute_error(y_test, weighted_pred))
+            # **FIX**: Populate the reporting dictionary
+            component_weights_for_reporting[name] = {
+                "r2_score": r2,
+                "mse": mse,
+            }
 
-            # Store the last fold's values for final metrics
-            final_weights = weights
-            final_weighted_pred = weighted_pred
-            final_y_test = y_test
-            final_model_names_with_positive_r2 = fold_model_names
+    if not model_names:
+        print("Warning: No models with positive R2 found. Skipping weighted average ensembles.")
+        return avg_ensemble_models, avg_ensemble_metrics
 
-    if final_weights is not None and final_weighted_pred is not None and final_y_test is not None:
-        # Create a closure to capture the weights properly
-        def create_weighted_predict(weights, models, model_names):
-            def weighted_predict(x_new):
-                # Only use models that were included in the weighting
-                predictions = np.column_stack(
-                    [
-                        models[name]["function"](x_new, *models[name]["parameters"])
-                        for name in model_names  # Use only the models with positive R2
-                    ]
-                )
-                return np.average(predictions, axis=1, weights=weights)
+    # Normalize weights
+    r2_weights = np.array(r2_weights) / np.sum(r2_weights)
+    inv_mse_weights = np.array(inv_mse_weights) / np.sum(inv_mse_weights)
 
-            return weighted_predict
+    # **FIX**: Add weights to the reporting dict
+    for i, name in enumerate(model_names):
+        component_weights_for_reporting[name]["r2_weight"] = r2_weights[i]
+        component_weights_for_reporting[name]["inv_mse_weight"] = inv_mse_weights[i]
 
-        avg_ensemble_models["Weighted Average (R2)"] = {
-            "predict": create_weighted_predict(
-                final_weights, final_fitted_models, final_model_names_with_positive_r2
-            ),
-            "weights_type": "R2",
-            "weights": dict(zip(final_model_names_with_positive_r2, final_weights)),
-            "type": "weighted_average",
-            "component_weights": component_weights_for_reporting.copy(),  # Store a copy
-        }
-        avg_ensemble_metrics["Weighted Average (R2)"] = {
-            "test_rmse": np.sqrt(mean_squared_error(final_y_test, final_weighted_pred)),
-            "test_r2": np.mean(cv_test_r2_wa),
-            "test_mae": np.mean(cv_test_mae_wa),
-        }
+    # Create closures for prediction
+    def create_weighted_predict(weights, models_dict, model_order):
+        def weighted_predict(x_new):
+            predictions = np.column_stack(
+                [
+                    models_dict[name]["function"](x_new.ravel(), *models_dict[name]["parameters"])
+                    for name in model_order
+                ]
+            )
+            return np.average(predictions, axis=1, weights=weights)
+
+        return weighted_predict
+
+    # Weighted Average (R2)
+    wa_r2_pred = np.average(
+        np.column_stack([base_features_dict[name] for name in model_names]),
+        axis=1,
+        weights=r2_weights,
+    )
+    avg_ensemble_models["Weighted Average (R2)"] = {
+        "predict": create_weighted_predict(r2_weights, final_fold_growth_models, model_names),
+        "weights": dict(zip(model_names, r2_weights)),
+        "component_weights": component_weights_for_reporting,  # Pass the populated dict
+        "type": "weighted_average",
+    }
+    avg_ensemble_metrics["Weighted Average (R2)"] = {
+        "test_rmse": np.sqrt(mean_squared_error(y, wa_r2_pred)),
+        "test_r2": r2_score(y, wa_r2_pred),
+        "test_mae": mean_absolute_error(y, wa_r2_pred),
+    }
+
+    # **FIX**: Implement Weighted Average (InvMSE)
+    wa_invmse_pred = np.average(
+        np.column_stack([base_features_dict[name] for name in model_names]),
+        axis=1,
+        weights=inv_mse_weights,
+    )
+    avg_ensemble_models["Weighted Average (InvMSE)"] = {
+        "predict": create_weighted_predict(inv_mse_weights, final_fold_growth_models, model_names),
+        "weights": dict(zip(model_names, inv_mse_weights)),
+        "component_weights": component_weights_for_reporting,
+        "type": "weighted_average",
+    }
+    avg_ensemble_metrics["Weighted Average (InvMSE)"] = {
+        "test_rmse": np.sqrt(mean_squared_error(y, wa_invmse_pred)),
+        "test_r2": r2_score(y, wa_invmse_pred),
+        "test_mae": mean_absolute_error(y, wa_invmse_pred),
+    }
 
     return avg_ensemble_models, avg_ensemble_metrics
 

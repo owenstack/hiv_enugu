@@ -37,9 +37,9 @@ def build_ensemble_models(X, y, fitted_models, model_metrics, cv_splits):
         "type": "simple_average",
     }
     ensemble_metrics["Simple Average"] = {
-        "rmse": np.sqrt(mean_squared_error(y, simple_avg_pred)),
-        "r2": r2_score(y, simple_avg_pred),
-        "mae": mean_absolute_error(y, simple_avg_pred),
+        "test_rmse": np.sqrt(mean_squared_error(y, simple_avg_pred)),
+        "test_r2": r2_score(y, simple_avg_pred),
+        "test_mae": mean_absolute_error(y, simple_avg_pred),
     }
 
     # --- Weighted Average Ensembles ---
@@ -77,9 +77,9 @@ def build_ensemble_models(X, y, fitted_models, model_metrics, cv_splits):
         "type": "weighted_average",
     }
     ensemble_metrics["Weighted Average (R2)"] = {
-        "rmse": np.sqrt(mean_squared_error(y, weighted_avg_pred_r2)),
-        "r2": r2_score(y, weighted_avg_pred_r2),
-        "mae": mean_absolute_error(y, weighted_avg_pred_r2),
+        "test_rmse": np.sqrt(mean_squared_error(y, weighted_avg_pred_r2)),
+        "test_r2": r2_score(y, weighted_avg_pred_r2),
+        "test_mae": mean_absolute_error(y, weighted_avg_pred_r2),
     }
 
     # Weights from Inverse MSE
@@ -122,9 +122,9 @@ def build_ensemble_models(X, y, fitted_models, model_metrics, cv_splits):
         "type": "weighted_average",
     }
     ensemble_metrics["Weighted Average (InvMSE)"] = {
-        "rmse": np.sqrt(mean_squared_error(y, weighted_avg_pred_inv_mse)),
-        "r2": r2_score(y, weighted_avg_pred_inv_mse),
-        "mae": mean_absolute_error(y, weighted_avg_pred_inv_mse),
+        "test_rmse": np.sqrt(mean_squared_error(y, weighted_avg_pred_inv_mse)),
+        "test_r2": r2_score(y, weighted_avg_pred_inv_mse),
+        "test_mae": mean_absolute_error(y, weighted_avg_pred_inv_mse),
     }
 
     # Store the collected weights in a way the pipeline can access it if needed, e.g., by returning it
@@ -199,9 +199,9 @@ def build_ensemble_models(X, y, fitted_models, model_metrics, cv_splits):
             "type": name.lower().replace(" ", "_"),  # e.g. "random_forest"
         }
         ensemble_metrics[name] = {
-            "rmse": np.sqrt(mean_squared_error(y, y_pred_on_full_X_for_metrics)),
-            "r2": r2_score(y, y_pred_on_full_X_for_metrics),
-            "mae": mean_absolute_error(y, y_pred_on_full_X_for_metrics),
+            "test_rmse": np.sqrt(mean_squared_error(y, y_pred_on_full_X_for_metrics)),
+            "test_r2": r2_score(y, y_pred_on_full_X_for_metrics),
+            "test_mae": mean_absolute_error(y, y_pred_on_full_X_for_metrics),
         }
 
     # Save models

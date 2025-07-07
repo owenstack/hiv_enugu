@@ -58,16 +58,28 @@ def fit_growth_models(X, y, cv_splits):
         "Gompertz": (
             gompertz_model,
             (
+                # Parameters: L, k, t0, c_offset
                 [
-                    np.max(y) * 1.2 if np.max(y) > 0 else 1.2,
-                    2,
-                    0.01,
-                    np.min(y) if len(y) > 0 else 0,
+                    np.max(y) * 1.2 if np.max(y) > 0 else 1.2,  # L
+                    0.01,  # k (steepness)
+                    np.median(X) if len(X) > 0 else 0.5,  # t0 (midpoint)
+                    np.min(y) if len(y) > 0 else 0,  # c_offset
                 ],
-                [np.max(y) if np.max(y) > 0 else 1, 0.1, 0.001, -np.inf],
-                [np.max(y) * 2 if np.max(y) > 0 else 2, 10, 0.1, np.inf],
+                # Bounds for L, k, t0, c_offset
+                [
+                    np.max(y) if np.max(y) > 0 else 1,  # L_low
+                    0.001,  # k_low
+                    X.min() if len(X) > 0 else 0,  # t0_low
+                    -np.inf,  # c_offset_low
+                ],
+                [
+                    np.max(y) * 2 if np.max(y) > 0 else 2,  # L_high
+                    0.1,  # k_high
+                    X.max() if len(X) > 0 else 1,  # t0_high
+                    np.inf,  # c_offset_high
+                ],
             ),
-        ),  # Using 10 from new code
+        ),
     }
 
     fitted_models = {}

@@ -374,7 +374,7 @@ def run_training_and_analysis(file_path_str: str) -> None:
     logger.info("\nStep 5: Building ensemble models...")
     # Pass final fitted growth models and their metrics for building average-based ensembles
     ensemble_models_dict, ensemble_metrics_dict = build_ensemble_models_with_cv(
-        X, y, cv_fitted_models, cv_splits, current_fitted_models, current_model_metrics
+        X, y, cv_fitted_models, cv_splits
     )
     if not ensemble_models_dict:
         logger.warning("No ensemble models built.")

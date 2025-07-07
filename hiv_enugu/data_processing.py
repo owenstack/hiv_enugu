@@ -1,8 +1,9 @@
-import pandas as pd
-import numpy as np
-from datetime import datetime
-from hiv_enugu.plotting.exploratory import plot_basic_timeseries
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from hiv_enugu.plotting.exploratory import plot_basic_timeseries
 
 
 def load_data(file_path: Path) -> pd.DataFrame | None:

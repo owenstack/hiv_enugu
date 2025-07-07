@@ -10,6 +10,53 @@ import joblib
 import os
 
 
+def build_ensemble_models_with_cv(X, y, cv_fitted_models, cv_splits):
+    """Builds and evaluates ensemble models using cross-validation."""
+    ensemble_metrics = {}
+
+    for model_name in ["Random Forest", "Gradient Boosting"]:
+        cv_test_rmse, cv_test_r2, cv_test_mae = [], [], []
+
+        for i, (train_index, test_index) in enumerate(cv_splits):
+            X_train, X_test = X[train_index], X[test_index]
+            y_train, y_test = y[train_index], y[test_index]
+
+            # Create features using growth models from the current fold
+            fold_fitted_models = {name: cv_fitted_models[name][i] for name in cv_fitted_models}
+
+            # Check if all models for the fold are valid
+            if not all(fold_fitted_models.values()):
+                print(f"Skipping fold {i + 1} for {model_name} due to missing growth model.")
+                continue
+
+            train_features = create_ml_features(X_train, fold_fitted_models, X_train)
+            test_features = create_ml_features(X_test, fold_fitted_models, X_train)
+
+            scaler = StandardScaler().fit(train_features)
+            train_features_scaled = scaler.transform(train_features)
+            test_features_scaled = scaler.transform(test_features)
+
+            if model_name == "Random Forest":
+                model = RandomForestRegressor(random_state=42, n_estimators=100, max_depth=10)
+            else:
+                model = GradientBoostingRegressor(random_state=42, n_estimators=100, max_depth=5)
+
+            model.fit(train_features_scaled, y_train)
+            y_pred = model.predict(test_features_scaled)
+
+            cv_test_rmse.append(np.sqrt(mean_squared_error(y_test, y_pred)))
+            cv_test_r2.append(r2_score(y_test, y_pred))
+            cv_test_mae.append(mean_absolute_error(y_test, y_pred))
+
+        ensemble_metrics[model_name] = {
+            "test_rmse": np.mean(cv_test_rmse),
+            "test_r2": np.mean(cv_test_r2),
+            "test_mae": np.mean(cv_test_mae),
+        }
+
+    return {}, ensemble_metrics
+
+
 def build_ensemble_models(X, y, fitted_models, model_metrics, cv_splits):
     """Builds and evaluates ensemble models with a focus on clarity and robustness."""
     ensemble_models = {}
@@ -37,9 +84,9 @@ def build_ensemble_models(X, y, fitted_models, model_metrics, cv_splits):
         "type": "simple_average",
     }
     ensemble_metrics["Simple Average"] = {
-        "rmse": np.sqrt(mean_squared_error(y, simple_avg_pred)),
-        "r2": r2_score(y, simple_avg_pred),
-        "mae": mean_absolute_error(y, simple_avg_pred),
+        "test_rmse": np.sqrt(mean_squared_error(y, simple_avg_pred)),
+        "test_r2": r2_score(y, simple_avg_pred),
+        "test_mae": mean_absolute_error(y, simple_avg_pred),
     }
 
     # --- Weighted Average Ensembles ---
@@ -77,9 +124,9 @@ def build_ensemble_models(X, y, fitted_models, model_metrics, cv_splits):
         "type": "weighted_average",
     }
     ensemble_metrics["Weighted Average (R2)"] = {
-        "rmse": np.sqrt(mean_squared_error(y, weighted_avg_pred_r2)),
-        "r2": r2_score(y, weighted_avg_pred_r2),
-        "mae": mean_absolute_error(y, weighted_avg_pred_r2),
+        "test_rmse": np.sqrt(mean_squared_error(y, weighted_avg_pred_r2)),
+        "test_r2": r2_score(y, weighted_avg_pred_r2),
+        "test_mae": mean_absolute_error(y, weighted_avg_pred_r2),
     }
 
     # Weights from Inverse MSE
@@ -122,9 +169,9 @@ def build_ensemble_models(X, y, fitted_models, model_metrics, cv_splits):
         "type": "weighted_average",
     }
     ensemble_metrics["Weighted Average (InvMSE)"] = {
-        "rmse": np.sqrt(mean_squared_error(y, weighted_avg_pred_inv_mse)),
-        "r2": r2_score(y, weighted_avg_pred_inv_mse),
-        "mae": mean_absolute_error(y, weighted_avg_pred_inv_mse),
+        "test_rmse": np.sqrt(mean_squared_error(y, weighted_avg_pred_inv_mse)),
+        "test_r2": r2_score(y, weighted_avg_pred_inv_mse),
+        "test_mae": mean_absolute_error(y, weighted_avg_pred_inv_mse),
     }
 
     # Store the collected weights in a way the pipeline can access it if needed, e.g., by returning it
@@ -199,9 +246,9 @@ def build_ensemble_models(X, y, fitted_models, model_metrics, cv_splits):
             "type": name.lower().replace(" ", "_"),  # e.g. "random_forest"
         }
         ensemble_metrics[name] = {
-            "rmse": np.sqrt(mean_squared_error(y, y_pred_on_full_X_for_metrics)),
-            "r2": r2_score(y, y_pred_on_full_X_for_metrics),
-            "mae": mean_absolute_error(y, y_pred_on_full_X_for_metrics),
+            "test_rmse": np.sqrt(mean_squared_error(y, y_pred_on_full_X_for_metrics)),
+            "test_r2": r2_score(y, y_pred_on_full_X_for_metrics),
+            "test_mae": mean_absolute_error(y, y_pred_on_full_X_for_metrics),
         }
 
     # Save models

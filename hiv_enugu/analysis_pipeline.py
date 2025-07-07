@@ -11,7 +11,7 @@ from pathlib import Path
 from hiv_enugu.data_processing import load_data
 from hiv_enugu.modeling.data_prep import prepare_data_for_modeling
 from hiv_enugu.modeling.fit import fit_growth_models
-from hiv_enugu.modeling.ensemble import build_ensemble_models
+from hiv_enugu.modeling.ensemble import build_ensemble_models_with_cv
 from hiv_enugu.utils import (
     generate_bootstrap_predictions,
 )  # generate_bootstrap_predictions type: Callable
@@ -262,7 +262,9 @@ def run_training_and_analysis(file_path_str: str) -> None:
 
     # 3. Fit individual growth models
     logger.info("\nStep 3: Fitting individual growth models...")
-    current_fitted_models, current_model_metrics = fit_growth_models(X, y, cv_splits)
+    current_fitted_models, current_model_metrics, cv_fitted_models = fit_growth_models(
+        X, y, cv_splits
+    )
     fitted_models_global.clear()
     fitted_models_global.update(current_fitted_models)
     model_metrics_global.clear()
@@ -378,8 +380,8 @@ def run_training_and_analysis(file_path_str: str) -> None:
     # 5. Build ensemble models
     logger.info("\nStep 5: Building ensemble models...")
     # This function is expected to save 'feature_scaler.pkl' and potentially ML models like 'rf_model.pkl'.
-    ensemble_models_dict, ensemble_metrics_dict = build_ensemble_models(
-        X, y, fitted_models_global, model_metrics_global, cv_splits
+    ensemble_models_dict, ensemble_metrics_dict = build_ensemble_models_with_cv(
+        X, y, cv_fitted_models, cv_splits
     )
     if not ensemble_models_dict:
         logger.warning("No ensemble models built.")
@@ -555,7 +557,7 @@ def run_training_and_analysis(file_path_str: str) -> None:
     logger.info("\nTo interpret the results, please consider the following:")
     logger.info(
         f"1. Best Overall Model: Refer to '{REPORTS_DIR / 'overall_evaluation_metrics.csv'}' "
-        f"and '{FIGURES_DIR / 'model_metrics_comparison.png'}'."
+        f"and '{FIGURES_DIR / 'model_metrics_comparison.png'}'"
     )
     logger.info("   Look for models with low RMSE/MAE and high R².")
     logger.info(
